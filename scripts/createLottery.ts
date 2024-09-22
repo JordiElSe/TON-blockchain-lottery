@@ -11,12 +11,10 @@ export async function run(provider: NetworkProvider) {
             value: toNano('0.05'),
         },
         {
-            $$type: 'Deploy',
-            queryId: 0n,
+            $$type: 'CreateLottery',
+            numOfTickets: 100n,
+            ticketPrice: toNano('0.01'),
         },
     );
-
-    await provider.waitForDeploy(lotteryMaster.address);
-
     // run methods on `lotteryMaster`
 }

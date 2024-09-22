@@ -1,8 +1,30 @@
 import "@stdlib/deploy";
+import "@stdlib/ownable";
 
-contract LotteryMaster with Deployable {
-    // Empty init() function is present by default in all Tact contracts
-    // since v1.3.0, so the following may be omitted:
-    //
-    // init() {}
+message CreateLottery {
+    numOfTickets: Int as uint32;
+    ticketPrice: Int as coins;
+}
+
+contract LotteryMaster with Deployable, Ownable {
+    owner: Address;
+    id: Int as uint32;
+
+    init(id: Int) {
+        self.owner = sender();
+        self.id = id;
+    }
+
+    receive(msg: CreateLottery) {
+        self.requireOwner();
+        // Deploy a new Lottery contract with the given parameters
+        /* deploy("Lottery", CreateLottery {
+            numOfTickets: msg.numOfTickets,
+            ticketPrice: msg.ticketPrice
+        }); */
+    }
+
+    get fun id(): Int {
+        return self.id;
+    }
 }
