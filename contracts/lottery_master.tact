@@ -1,12 +1,13 @@
 import "@stdlib/deploy";
 import "@stdlib/ownable";
+import "./lottery_game";
 
 message CreateLottery {
-    numOfTickets: Int as uint32;
+    maxPlayers: Int as uint16;
     ticketPrice: Int as coins;
 }
 
-contract LotteryMaster with Deployable, Ownable {
+contract LotteryMaster with Deployable, OwnableTransferable {
     owner: Address;
     id: Int as uint32;
 
@@ -15,16 +16,34 @@ contract LotteryMaster with Deployable, Ownable {
         self.id = id;
     }
 
+    receive() {
+        // Accept incoming TON transfers
+    }
+
     receive(msg: CreateLottery) {
         self.requireOwner();
         // Deploy a new Lottery contract with the given parameters
-        /* deploy("Lottery", CreateLottery {
-            numOfTickets: msg.numOfTickets,
-            ticketPrice: msg.ticketPrice
-        }); */
+        let init: StateInit = initOf LotteryGame(msg.maxPlayers, msg.ticketPrice, self.owner);
+        send(SendParameters{
+            to: contractAddress(init),
+            value: ton("0.03"),
+            mode: SendIgnoreErrors,
+            code: init.code,
+            data: init.data
+        });
+
+        self.reply("Lottery created".asComment());
     }
 
     get fun id(): Int {
         return self.id;
+    }
+
+    get fun balance(): String {
+        return myBalance().toCoinsString();
+    }
+
+    get fun lotteryGameAddress(maxPlayers: Int, ticketPrice: Int): Address {
+        return contractAddress(initOf LotteryGame(maxPlayers, ticketPrice, self.owner));
     }
 }

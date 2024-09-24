@@ -1,6 +1,7 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { toNano } from '@ton/core';
 import { LotteryMaster } from '../wrappers/LotteryMaster';
+import { LotteryGame } from '../wrappers/LotteryGame';
 import '@ton/test-utils';
 
 describe('LotteryMaster', () => {
@@ -55,7 +56,7 @@ describe('LotteryMaster', () => {
             },
             {
                 $$type: 'CreateLottery',
-                numOfTickets: 100n,
+                maxPlayers: 100n,
                 ticketPrice: toNano('0.01'),
             },
         );
@@ -65,5 +66,38 @@ describe('LotteryMaster', () => {
             to: lotteryMaster.address,
             success: false,
         });
+    });
+
+    it('should create a lottery game with the specified parameters', async () => {
+        const result = await lotteryMaster.send(
+            deployer.getSender(),
+            {
+                value: toNano('0.05'),
+            },
+            {
+                $$type: 'CreateLottery',
+                maxPlayers: 100n,
+                ticketPrice: toNano('0.01'),
+            },
+        );
+
+        expect(result.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: lotteryMaster.address,
+            success: true,
+        });
+
+        const lotteryGameAddr = await lotteryMaster.getLotteryGameAddress(100n, toNano('0.01'));
+        const lotteryGame = blockchain.openContract(LotteryGame.fromAddress(lotteryGameAddr));
+
+        console.log('lotteryGame parameters:');
+        const owner = await lotteryGame.getOwner();
+        expect(owner.toString()).toEqual(deployer.address.toString());
+        const maxPlayers = await lotteryGame.getMaxPlayers();
+        console.log('maxPlayers', maxPlayers);
+        expect(maxPlayers).toEqual('100');
+        const ticketPrice = await lotteryGame.getTicketPrice();
+        console.log(`ticketPrice: ${ticketPrice} ton`);
+        expect(ticketPrice).toEqual('0.01');
     });
 });
