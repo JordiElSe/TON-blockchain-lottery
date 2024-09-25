@@ -23,7 +23,7 @@ contract LotteryMaster with Deployable, OwnableTransferable {
 
     receive(msg: CreateLottery) {
         self.requireOwner();
-        require(myBalance() >= ton("0.03"), "Not enough balance to deploy a new Lottery Game contract");
+        require(myBalance() - ton("0.03") >= self.MIN_TONS_FOR_STORAGE, "Not enough balance to deploy a new Lottery Game contract");
         // Deploy a new Lottery contract with the given parameters
         let init: StateInit = initOf LotteryGame(msg.maxPlayers, msg.ticketPrice, self.owner);
         send(SendParameters{

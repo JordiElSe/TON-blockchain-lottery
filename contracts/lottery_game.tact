@@ -1,10 +1,6 @@
 import "@stdlib/deploy";
 import "@stdlib/ownable";
 
-message BuyTicket {
-    number: Int as uint16;
-}
-
 contract LotteryGame with Deployable, OwnableTransferable {
     // parent: Address;
     // id: Int as uint32;
@@ -26,8 +22,19 @@ contract LotteryGame with Deployable, OwnableTransferable {
         // Accept incoming TON transfers
     }
 
-    receive(msg: BuyTicket) {
-        self.requireOwner();
+    receive("buyTicket") {
+        require(self.currentPlayers < self.maxPlayers, "Lottery is full");
+        require(context().value >= self.ticketPrice, "Not enough funds to buy a ticket");
+        // Add the player to the list of players
+        self.players.set(self.currentPlayers, sender());
+        self.currentPlayers += 1;
+        send(SendParameters{
+            // bounce = true by default
+            to: sender(), // send the message back to the original sender
+            value: 0,
+            mode: SendRemainingValue | SendIgnoreErrors,
+            body: "Congratulations your own a ticket!".asComment(),
+        });
     }
 
     // get fun id(): Int {

@@ -38,4 +38,35 @@ describe('LotteryGame', () => {
         // the check is done inside beforeEach
         // blockchain and lotteryGame are ready to use
     });
+
+    it('should not buy ticket number if the lottery is full', async () => {
+        for (let i = 0; i < 100; i++) {
+            const player = await blockchain.treasury('player' + i);
+            const result = await lotteryGame.send(
+                player.getSender(),
+                {
+                    value: toNano('0.01'),
+                },
+                'buyTicket',
+            );
+            expect(result.transactions).toHaveTransaction({
+                from: player.address,
+                to: lotteryGame.address,
+                success: true,
+            });
+        }
+        const player = await blockchain.treasury('player' + 100);
+        const result = await lotteryGame.send(
+            player.getSender(),
+            {
+                value: toNano('0.01'),
+            },
+            'buyTicket',
+        );
+        expect(result.transactions).toHaveTransaction({
+            from: player.address,
+            to: lotteryGame.address,
+            success: false,
+        });
+    });
 });

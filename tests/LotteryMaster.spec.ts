@@ -72,7 +72,7 @@ describe('LotteryMaster', () => {
         const results = await lotteryMaster.send(
             deployer.getSender(),
             {
-                value: toNano('0.029'),
+                value: toNano('0.03'),
             },
             {
                 $$type: 'CreateLottery',
