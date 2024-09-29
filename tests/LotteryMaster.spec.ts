@@ -1,5 +1,5 @@
 import { Blockchain, SandboxContract, TreasuryContract, printTransactionFees } from '@ton/sandbox';
-import { toNano } from '@ton/core';
+import { toNano, fromNano } from '@ton/core';
 import { LotteryMaster } from '../wrappers/LotteryMaster';
 import { LotteryGame } from '../wrappers/LotteryGame';
 import '@ton/test-utils';
@@ -68,11 +68,11 @@ describe('LotteryMaster', () => {
         });
     });
 
-    it('should reject CreateLottery messages when not enough balance', async () => {
+    it('should reject and bounce CreateLottery messages when not enough balance to deploy new lottery', async () => {
         const results = await lotteryMaster.send(
             deployer.getSender(),
             {
-                value: toNano('0.03'),
+                value: toNano('0.029'),
             },
             {
                 $$type: 'CreateLottery',
@@ -81,10 +81,19 @@ describe('LotteryMaster', () => {
             },
         );
 
+        // Reject the CreateLottery message
         expect(results.transactions).toHaveTransaction({
             from: deployer.address,
             to: lotteryMaster.address,
             success: false,
+        });
+
+        // Send bounced message back to the sender
+        expect(results.transactions).toHaveTransaction({
+            from: lotteryMaster.address,
+            to: deployer.address,
+            success: true,
+            inMessageBounced: true,
         });
     });
 

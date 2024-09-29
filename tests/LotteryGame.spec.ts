@@ -1,5 +1,5 @@
-import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
-import { Address, toNano } from '@ton/core';
+import { Blockchain, printTransactionFees, SandboxContract, TreasuryContract } from '@ton/sandbox';
+import { Address, toNano, fromNano } from '@ton/core';
 import { LotteryGame } from '../wrappers/LotteryGame';
 import '@ton/test-utils';
 
@@ -14,7 +14,6 @@ describe('LotteryGame', () => {
         deployer = await blockchain.treasury('deployer');
 
         lotteryGame = blockchain.openContract(await LotteryGame.fromInit(100n, toNano('0.01'), deployer.address));
-
         const deployResult = await lotteryGame.send(
             deployer.getSender(),
             {
@@ -25,7 +24,6 @@ describe('LotteryGame', () => {
                 queryId: 0n,
             },
         );
-
         expect(deployResult.transactions).toHaveTransaction({
             from: deployer.address,
             to: lotteryGame.address,
