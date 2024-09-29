@@ -22,7 +22,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
         // Accept incoming TON transfers
     }
 
-    receive("buyTicket") {
+    receive("BuyTicket") {
         require(self.currentPlayers < self.maxPlayers, "Lottery is full");
         require(context().value >= self.ticketPrice, "Not enough funds to buy a ticket");
         // Add the player to the list of players
@@ -32,8 +32,8 @@ contract LotteryGame with Deployable, OwnableTransferable {
             // bounce = true by default
             to: sender(), // send the message back to the original sender
             value: 0,
-            mode: SendRemainingValue | SendIgnoreErrors,
-            body: "Congratulations your own a ticket!".asComment(),
+            mode:  SendIgnoreErrors,
+            body: "Congratulations you own a ticket!".asComment(),
         });
     }
 

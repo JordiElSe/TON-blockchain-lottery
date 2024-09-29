@@ -7,6 +7,8 @@ describe('LotteryGame', () => {
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
     let lotteryGame: SandboxContract<LotteryGame>;
+    const maxPlayers: bigint = 100n;
+    const ticketPrice = toNano('2');
 
     beforeEach(async () => {
         blockchain = await Blockchain.create();
@@ -45,7 +47,7 @@ describe('LotteryGame', () => {
                 {
                     value: toNano('0.01'),
                 },
-                'buyTicket',
+                'BuyTicket',
             );
             expect(result.transactions).toHaveTransaction({
                 from: player.address,
@@ -53,16 +55,37 @@ describe('LotteryGame', () => {
                 success: true,
             });
         }
+        const playersBefore = await lotteryGame.getCurrentPlayers();
         const player = await blockchain.treasury('player' + 100);
         const result = await lotteryGame.send(
             player.getSender(),
             {
                 value: toNano('0.01'),
             },
-            'buyTicket',
+            'BuyTicket',
         );
+        const playersAfter = await lotteryGame.getCurrentPlayers();
+        expect(playersAfter).toEqual(playersBefore);
         expect(result.transactions).toHaveTransaction({
             from: player.address,
+            to: lotteryGame.address,
+            success: false,
+        });
+    });
+
+    it('should not buy ticket for less than it costs', async () => {
+        const playersBefore = await lotteryGame.getCurrentPlayers();
+        const results = await lotteryGame.send(
+            deployer.getSender(),
+            {
+                value: toNano('0.005'),
+            },
+            'BuyTicket',
+        );
+        const playersAfter = await lotteryGame.getCurrentPlayers();
+        expect(playersAfter).toEqual(playersBefore);
+        expect(results.transactions).toHaveTransaction({
+            from: deployer.address,
             to: lotteryGame.address,
             success: false,
         });
