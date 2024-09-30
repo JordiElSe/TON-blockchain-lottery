@@ -1,6 +1,10 @@
 import "@stdlib/deploy";
 import "@stdlib/ownable";
 
+message BuyNumber {
+    num: Int as uint16;
+}
+
 contract LotteryGame with Deployable, OwnableTransferable {
     // parent: Address;
     // id: Int as uint32;
@@ -8,33 +12,32 @@ contract LotteryGame with Deployable, OwnableTransferable {
     players: map<Int as uint16, Address>;
     currentPlayers: Int as uint16;
     maxPlayers: Int as uint16;
-    ticketPrice: Int as coins;
+    numPrice: Int as coins;
 
 
-    init(maxPlayers: Int, ticketPrice: Int, owner: Address) {
+    init(maxPlayers: Int, numPrice: Int, owner: Address) {
         self.owner = owner;
         self.currentPlayers = 0;
         self.maxPlayers = maxPlayers;
-        self.ticketPrice = ticketPrice;
+        self.numPrice = numPrice;
     }
 
     receive() {
         // Accept incoming TON transfers
     }
 
-    receive("BuyTicket") {
-        require(self.currentPlayers < self.maxPlayers, "Lottery is full");
-        require(context().value >= self.ticketPrice, "Not enough funds to buy a ticket");
+    receive(msg: BuyNumber) {
+        require(msg.num >= 0 && msg.num < self.maxPlayers, "Invalid number");
+        // require(self.currentPlayers < self.maxPlayers, "Lottery is full");
+        require(context().value >= self.numPrice, "Not enough funds to buy a ticket");
+        require(self.players.get(msg.num) == null, "Number already taken");
         // Add the player to the list of players
-        self.players.set(self.currentPlayers, sender());
+        self.players.set(msg.num, sender());
         self.currentPlayers += 1;
-        send(SendParameters{
-            // bounce = true by default
-            to: sender(), // send the message back to the original sender
-            value: 0,
-            mode:  SendIgnoreErrors,
-            body: "Congratulations you own a ticket!".asComment(),
-        });
+        let emitMsg: StringBuilder = beginString();
+        emitMsg.append("You bought the number ");
+        emitMsg.append(msg.num.toString());
+        emit(emitMsg.toCell());
     }
 
     // get fun id(): Int {
@@ -53,15 +56,20 @@ contract LotteryGame with Deployable, OwnableTransferable {
         return myBalance().toCoinsString();
     }
 
-    get fun currentPlayers(): String {
-        return self.currentPlayers.toString();
+    get fun currentPlayers(): Int {
+        dump(self.currentPlayers);
+        return self.currentPlayers;
     }
 
     get fun maxPlayers(): String {
         return self.maxPlayers.toString();
     }
 
-    get fun ticketPrice(): String {
-        return self.ticketPrice.toCoinsString();
+    get fun numPrice(): String {
+        return self.numPrice.toCoinsString();
+    }
+
+    get fun player(ticketNum: Int): Address? {
+        return self.players.get(ticketNum);
     }
 }

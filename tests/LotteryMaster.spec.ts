@@ -57,7 +57,7 @@ describe('LotteryMaster', () => {
             {
                 $$type: 'CreateLottery',
                 maxPlayers: 100n,
-                ticketPrice: toNano('0.01'),
+                numPrice: toNano('0.01'),
             },
         );
 
@@ -77,7 +77,7 @@ describe('LotteryMaster', () => {
             {
                 $$type: 'CreateLottery',
                 maxPlayers: 100n,
-                ticketPrice: toNano('0.01'),
+                numPrice: toNano('0.01'),
             },
         );
 
@@ -106,7 +106,7 @@ describe('LotteryMaster', () => {
             {
                 $$type: 'CreateLottery',
                 maxPlayers: 100n,
-                ticketPrice: toNano('0.01'),
+                numPrice: toNano('0.01'),
             },
         );
 
@@ -119,14 +119,14 @@ describe('LotteryMaster', () => {
         const lotteryGameAddr = await lotteryMaster.getLotteryGameAddress(100n, toNano('0.01'));
         const lotteryGame = blockchain.openContract(LotteryGame.fromAddress(lotteryGameAddr));
 
-        console.log('lotteryGame parameters:');
+        // console.log('lotteryGame parameters:');
         const owner = await lotteryGame.getOwner();
         expect(owner.toString()).toEqual(deployer.address.toString());
         const maxPlayers = await lotteryGame.getMaxPlayers();
-        console.log('maxPlayers', maxPlayers);
+        // console.log('maxPlayers', maxPlayers);
         expect(maxPlayers).toEqual('100');
-        const ticketPrice = await lotteryGame.getTicketPrice();
-        console.log(`ticketPrice: ${ticketPrice} ton`);
-        expect(ticketPrice).toEqual('0.01');
+        const numPrice = await lotteryGame.getNumPrice();
+        // console.log(`numPrice: ${numPrice} ton`);
+        expect(numPrice).toEqual('0.01');
     });
 });
