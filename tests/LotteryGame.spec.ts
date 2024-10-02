@@ -162,7 +162,7 @@ describe('LotteryGame', () => {
         const results = await lotteryGame.send(
             deployer.getSender(),
             {
-                value: toNano('0.1'),
+                value: toNano('0.01'),
             },
             {
                 $$type: 'BuyNumber',
@@ -171,6 +171,8 @@ describe('LotteryGame', () => {
         );
         const playersAfter = await lotteryGame.getCurrentPlayers();
         expect(playersAfter).toBe(playersBefore + 1n);
+        const addedPlayer = await lotteryGame.getPlayer(1n);
+        expect(addedPlayer?.toString()).toEqual(deployer.address.toString());
         expect(results.transactions).toHaveTransaction({
             from: deployer.address,
             to: lotteryGame.address,

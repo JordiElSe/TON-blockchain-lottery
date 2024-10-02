@@ -57,7 +57,6 @@ contract LotteryGame with Deployable, OwnableTransferable {
     }
 
     get fun currentPlayers(): Int {
-        dump(self.currentPlayers);
         return self.currentPlayers;
     }
 
