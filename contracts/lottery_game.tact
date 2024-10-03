@@ -13,13 +13,15 @@ contract LotteryGame with Deployable, OwnableTransferable {
     currentPlayers: Int as uint16;
     maxPlayers: Int as uint16;
     numPrice: Int as coins;
+    lotteryDuration: Int as uint32; // in seconds
 
 
-    init(maxPlayers: Int, numPrice: Int, owner: Address) {
+    init(maxPlayers: Int, numPrice: Int, owner: Address, lotteryDuration: Int?) {
         self.owner = owner;
         self.currentPlayers = 0;
         self.maxPlayers = maxPlayers;
         self.numPrice = numPrice;
+        self.lotteryDuration = lotteryDuration != null ? lotteryDuration!! : 7 * 24 * 60 * 60; // 1 week by default
     }
 
     receive() {
@@ -70,5 +72,9 @@ contract LotteryGame with Deployable, OwnableTransferable {
 
     get fun player(ticketNum: Int): Address? {
         return self.players.get(ticketNum);
+    }
+
+    get fun lotteryDuration(): Int {
+        return self.lotteryDuration;
     }
 }

@@ -13,7 +13,7 @@ describe('LotteryGame', () => {
 
         deployer = await blockchain.treasury('deployer');
 
-        lotteryGame = blockchain.openContract(await LotteryGame.fromInit(100n, toNano('0.01'), deployer.address));
+        lotteryGame = blockchain.openContract(await LotteryGame.fromInit(100n, toNano('0.01'), deployer.address, null));
         const deployResult = await lotteryGame.send(
             deployer.getSender(),
             {

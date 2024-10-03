@@ -12,8 +12,9 @@ export async function run(provider: NetworkProvider) {
         },
         {
             $$type: 'CreateLottery',
-            numOfTickets: 100n,
-            ticketPrice: toNano('0.01'),
+            maxPlayers: 100n,
+            numPrice: toNano('0.01'),
+            lotteryDuration: 100n,
         },
     );
     // run methods on `lotteryMaster`

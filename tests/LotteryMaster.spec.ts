@@ -58,6 +58,7 @@ describe('LotteryMaster', () => {
                 $$type: 'CreateLottery',
                 maxPlayers: 100n,
                 numPrice: toNano('0.01'),
+                lotteryDuration: null,
             },
         );
 
@@ -78,6 +79,7 @@ describe('LotteryMaster', () => {
                 $$type: 'CreateLottery',
                 maxPlayers: 100n,
                 numPrice: toNano('0.01'),
+                lotteryDuration: null,
             },
         );
 
@@ -107,6 +109,7 @@ describe('LotteryMaster', () => {
                 $$type: 'CreateLottery',
                 maxPlayers: 100n,
                 numPrice: toNano('0.01'),
+                lotteryDuration: null,
             },
         );
 
@@ -116,7 +119,7 @@ describe('LotteryMaster', () => {
             success: true,
         });
 
-        const lotteryGameAddr = await lotteryMaster.getLotteryGameAddress(100n, toNano('0.01'));
+        const lotteryGameAddr = await lotteryMaster.getLotteryGameAddress(100n, toNano('0.01'), null);
         const lotteryGame = blockchain.openContract(LotteryGame.fromAddress(lotteryGameAddr));
 
         // console.log('lotteryGame parameters:');
@@ -128,5 +131,8 @@ describe('LotteryMaster', () => {
         const numPrice = await lotteryGame.getNumPrice();
         // console.log(`numPrice: ${numPrice} ton`);
         expect(numPrice).toEqual('0.01');
+        const lotteryDuration = await lotteryGame.getLotteryDuration();
+        // console.log(`lotteryDuration: ${lotteryDuration} seconds`);
+        expect(lotteryDuration.toString()).toEqual((7 * 24 * 60 * 60).toString()); // 1 week in seconds
     });
 });

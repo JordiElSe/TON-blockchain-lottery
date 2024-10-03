@@ -3,7 +3,9 @@ import { LotteryGame } from '../wrappers/LotteryGame';
 import { NetworkProvider } from '@ton/blueprint';
 
 export async function run(provider: NetworkProvider) {
-    const lotteryGame = provider.open(await LotteryGame.fromInit());
+    const lotteryGame = provider.open(
+        await LotteryGame.fromInit(100n, toNano('0.01'), provider.sender().address!!, null),
+    );
 
     await lotteryGame.send(
         provider.sender(),
@@ -13,7 +15,7 @@ export async function run(provider: NetworkProvider) {
         {
             $$type: 'Deploy',
             queryId: 0n,
-        }
+        },
     );
 
     await provider.waitForDeploy(lotteryGame.address);
