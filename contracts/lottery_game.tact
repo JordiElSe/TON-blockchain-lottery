@@ -5,6 +5,14 @@ message BuyNumber {
     num: Int as uint16;
 }
 
+message PickWinners {
+    winnersMap: map<Int as uint8, Int as uint16>;
+}
+
+message InternalPickWinners {
+    winnersMap: map<Int as uint8, Int as uint16>;
+}
+
 contract LotteryGame with Deployable, OwnableTransferable {
     // parent: Address;
     // id: Int as uint32;
@@ -14,10 +22,11 @@ contract LotteryGame with Deployable, OwnableTransferable {
     maxPlayers: Int as uint16;
     numPrice: Int as coins;
     lotteryDuration: Int as uint32; // in seconds
-
+    deployTime: Int as uint32;
 
     init(maxPlayers: Int, numPrice: Int, owner: Address, lotteryDuration: Int?) {
         self.owner = owner;
+        self.deployTime = now();
         self.currentPlayers = 0;
         self.maxPlayers = maxPlayers;
         self.numPrice = numPrice;
@@ -42,12 +51,38 @@ contract LotteryGame with Deployable, OwnableTransferable {
         emit(emitMsg.toCell());
     }
 
-    // get fun id(): Int {
-    //     return self.id;
-    // }
+    receive(msg: PickWinners) {
+        require(now() - self.deployTime > self.lotteryDuration, "Lottery is not over");
+        send(SendParameters{
+            to: myAddress(),
+            value: 0,
+            mode: SendRemainingValue | SendBounceIfActionFail,
+            body: InternalPickWinners{winnersMap: msg.winnersMap}.toCell()
+        });
+    }
 
-    fun pickWiners() {
-        // Pick a winner
+    receive(msg: InternalPickWinners) {
+        require(sender() == myAddress(), "Only the contract itself can call this function");
+        let totalSum: Int = 0;
+        // Pick the winners
+        foreach (key, value in msg.winnersMap) {
+            repeat(key) {
+                totalSum += value;
+                require(totalSum <= 100, "Invalid winners map");
+                nativeRandomizeLt(); 
+                let ranNumber: Int = randomInt();
+                let winnerNum: Int = ranNumber % self.maxPlayers;
+                let winner: Address? = self.players.get(winnerNum);
+                if (winner != null) {
+                    // Send the prize to the winner
+                    send(SendParameters{
+                        to: winner!!,
+                        value: myBalance()*value/100,
+                        mode: SendBounceIfActionFail
+                    });
+                } 
+            }
+        }
     }
 
     fun awardPrizes() {
