@@ -1,5 +1,5 @@
 import { Blockchain, printTransactionFees, SandboxContract, TreasuryContract } from '@ton/sandbox';
-import { Address, toNano, fromNano, Cell } from '@ton/core';
+import { Address, toNano, fromNano, Cell, Dictionary } from '@ton/core';
 import { LotteryGame } from '../wrappers/LotteryGame';
 import '@ton/test-utils';
 
@@ -13,7 +13,7 @@ describe('LotteryGame', () => {
 
         deployer = await blockchain.treasury('deployer');
 
-        lotteryGame = blockchain.openContract(await LotteryGame.fromInit(100n, toNano('0.01'), deployer.address, null));
+        lotteryGame = blockchain.openContract(await LotteryGame.fromInit(100n, toNano('1'), deployer.address, null));
         const deployResult = await lotteryGame.send(
             deployer.getSender(),
             {
@@ -30,6 +30,8 @@ describe('LotteryGame', () => {
             deploy: true,
             success: true,
         });
+
+        blockchain.now = deployResult.transactions[1].now;
     });
 
     it('should deploy', async () => {
@@ -83,7 +85,7 @@ describe('LotteryGame', () => {
         const result1 = await lotteryGame.send(
             player1.getSender(),
             {
-                value: toNano('0.1'),
+                value: toNano('1'),
             },
             {
                 $$type: 'BuyNumber',
@@ -99,7 +101,7 @@ describe('LotteryGame', () => {
         const result2 = await lotteryGame.send(
             player2.getSender(),
             {
-                value: toNano('0.1'),
+                value: toNano('1'),
             },
             {
                 $$type: 'BuyNumber',
@@ -120,7 +122,7 @@ describe('LotteryGame', () => {
         const result = await lotteryGame.send(
             deployer.getSender(),
             {
-                value: toNano('0.1'),
+                value: toNano('1'),
             },
             {
                 $$type: 'BuyNumber',
@@ -141,7 +143,7 @@ describe('LotteryGame', () => {
         const results = await lotteryGame.send(
             deployer.getSender(),
             {
-                value: toNano('0.005'),
+                value: toNano('0.999'),
             },
             {
                 $$type: 'BuyNumber',
@@ -162,7 +164,7 @@ describe('LotteryGame', () => {
         const results = await lotteryGame.send(
             deployer.getSender(),
             {
-                value: toNano('0.01'),
+                value: toNano('1'),
             },
             {
                 $$type: 'BuyNumber',
@@ -191,4 +193,65 @@ describe('LotteryGame', () => {
             console.error(e);
         }
     });
+
+    // it('should pick the winners and distribute the prize once the time period to enter the lottery is finished', async () => {
+    //     for (let i = 0; i < 100; i++) {
+    //         const player = await blockchain.treasury('t6-player' + i);
+    //         await lotteryGame.send(
+    //             player.getSender(),
+    //             {
+    //                 value: toNano('1'),
+    //             },
+    //             {
+    //                 $$type: 'BuyNumber',
+    //                 num: BigInt(i),
+    //             },
+    //         );
+    //     }
+    //     const playersBefore = await lotteryGame.getCurrentPlayers();
+    //     expect(playersBefore).toBe(100n);
+    //     // const player = await blockchain.treasury('t6-player' + 99);
+    //     // const player100 = await lotteryGame.getPlayer(99n);
+    //     // console.log('Player 0:', player100);
+    //     // expect(player100?.toString()).toEqual(player.address.toString());
+    //     // const lotteryPotBefore = await lotteryGame.getBalance();
+    //     // console.log('Lottery pot before:', lotteryPotBefore);
+    //     let winnersMap = Dictionary.empty(Dictionary.Keys.Uint(16), Dictionary.Values.Uint(8));
+    //     winnersMap.set(50, 1); // one winner takes 50% of the prize
+    //     blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
+    //     console.log('deployer initial balance', fromNano(await deployer.getBalance()));
+    //     const result = await lotteryGame.send(
+    //         deployer.getSender(),
+    //         {
+    //             value: toNano('0.01'),
+    //         },
+    //         {
+    //             $$type: 'InternalPickWinners',
+    //             winnersMap: winnersMap,
+    //         },
+    //     );
+    //     console.log('deployer balance after pick winners', fromNano(await deployer.getBalance()));
+    //     // printTransactionFees(result.transactions);
+    //     expect(result.transactions).toHaveTransaction({
+    //         from: deployer.address,
+    //         to: lotteryGame.address,
+    //         success: true,
+    //     });
+    //     // We'll need only the body of the observed message:
+    //     const emittedMsgBody = result.externals[0].body;
+    //     // Now, let's parse it, knowing that it's a text message.
+    //     // NOTE: In a real-world scenario,
+    //     //       you'd want to check that first or wrap this in a try...catch
+    //     try {
+    //         const firstMsgText = emittedMsgBody.asSlice().loadStringTail();
+    //         console.log(firstMsgText);
+    //     } catch (e) {
+    //         console.error(e);
+    //     }
+    //     // expect(result.transactions).toHaveTransaction({
+    //     //     from: lotteryGame.address,
+    //     //     to: lotteryGame.address,
+    //     //     success: true,
+    //     // });
+    // });
 });

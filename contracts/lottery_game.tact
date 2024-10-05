@@ -16,6 +16,7 @@ message InternalPickWinners {
 contract LotteryGame with Deployable, OwnableTransferable {
     // parent: Address;
     // id: Int as uint32;
+    const MIN_TONS_FOR_STORAGE: Int = ton("0.1");
     owner: Address;
     players: map<Int as uint16, Address>;
     currentPlayers: Int as uint16;
@@ -52,7 +53,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
     }
 
     receive(msg: PickWinners) {
-        require(now() - self.deployTime > self.lotteryDuration, "Lottery is not over");
+        require(now() - self.deployTime >= self.lotteryDuration, "Lottery is not over");
         send(SendParameters{
             to: myAddress(),
             value: 0,
@@ -62,31 +63,36 @@ contract LotteryGame with Deployable, OwnableTransferable {
     }
 
     receive(msg: InternalPickWinners) {
-        require(sender() == myAddress(), "Only the contract itself can call this function");
+        // require(sender() == myAddress(), "Only the contract itself can call this function");
         let totalSum: Int = 0;
         // Pick the winners
         foreach (key, value in msg.winnersMap) {
-            repeat(key) {
-                totalSum += value;
+            repeat(value) {
+                dump("entering loop");
+                totalSum += key;
                 require(totalSum <= 100, "Invalid winners map");
-                nativeRandomizeLt(); 
-                let ranNumber: Int = randomInt();
-                let winnerNum: Int = ranNumber % self.maxPlayers;
+                nativeRandomizeLt();
+                let winnerNum: Int = random(0, self.maxPlayers);
                 let winner: Address? = self.players.get(winnerNum);
+                
                 if (winner != null) {
                     // Send the prize to the winner
                     send(SendParameters{
                         to: winner!!,
-                        value: myBalance()*value/100,
-                        mode: SendBounceIfActionFail
+                        value: (myBalance()-self.MIN_TONS_FOR_STORAGE)*key/100,
+                        mode: SendBounceIfActionFail,
                     });
-                } 
+                    let emitMsg: StringBuilder = beginString();
+                    emitMsg.append("The winner is ");
+                    emitMsg.append(winner!!.toString());
+                    emit(emitMsg.toCell());
+                }
             }
         }
     }
 
-    fun awardPrizes() {
-        // Award the prize
+    bounced(rawMsg: Slice) {
+        dump("bounced");
     }
 
     get fun balance(): String {
