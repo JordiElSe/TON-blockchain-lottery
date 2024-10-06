@@ -16,7 +16,8 @@ message InternalPickWinners {
 contract LotteryGame with Deployable, OwnableTransferable {
     // parent: Address;
     // id: Int as uint32;
-    const MIN_TONS_FOR_STORAGE: Int = ton("0.1");
+    const MIN_TONS_FOR_STORAGE: Int = ton("0");
+    const SEND_TON_FEE: Int = ton("0.000159");
     owner: Address;
     players: map<Int as uint16, Address>;
     currentPlayers: Int as uint16;
@@ -68,31 +69,35 @@ contract LotteryGame with Deployable, OwnableTransferable {
         // Pick the winners
         foreach (key, value in msg.winnersMap) {
             repeat(value) {
-                dump("entering loop");
                 totalSum += key;
                 require(totalSum <= 100, "Invalid winners map");
                 nativeRandomizeLt();
                 let winnerNum: Int = random(0, self.maxPlayers);
                 let winner: Address? = self.players.get(winnerNum);
-                
                 if (winner != null) {
+                    dump(myBalance());
+                    dump(myBalance()-context().value);
+                    let amountToAward: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value)*key/100 - self.SEND_TON_FEE;
+                    dump(amountToAward);
                     // Send the prize to the winner
                     send(SendParameters{
                         to: winner!!,
-                        value: (myBalance()-self.MIN_TONS_FOR_STORAGE)*key/100,
-                        mode: SendBounceIfActionFail,
+                        value: amountToAward,
+                        mode: SendBounceIfActionFail | SendPayGasSeparately
                     });
-                    let emitMsg: StringBuilder = beginString();
-                    emitMsg.append("The winner is ");
-                    emitMsg.append(winner!!.toString());
-                    emit(emitMsg.toCell());
+                    // let emitMsg: StringBuilder = beginString();
+                    // emitMsg.append("The winner is ");
+                    // emitMsg.append(winner!!.toString());
+                    // emit(emitMsg.toCell());
+                    emit(beginCell().storeUint(winnerNum, 16).storeUint(key, 16).endCell());
+                    // Remove the winner from the list of players
+                    // and fill its place with the last player
+                    self.players.set(winnerNum, self.players.get(self.maxPlayers-1));
+                    self.players.del(self.maxPlayers-1);
+                    self.maxPlayers -= 1;
                 }
             }
         }
-    }
-
-    bounced(rawMsg: Slice) {
-        dump("bounced");
     }
 
     get fun balance(): String {
@@ -117,5 +122,13 @@ contract LotteryGame with Deployable, OwnableTransferable {
 
     get fun lotteryDuration(): Int {
         return self.lotteryDuration;
+    }
+
+    get fun minTonsForStorage(): String {
+        return self.MIN_TONS_FOR_STORAGE.toCoinsString();
+    }
+
+    get fun sendTonFee(): String {
+        return self.SEND_TON_FEE.toCoinsString();
     }
 }

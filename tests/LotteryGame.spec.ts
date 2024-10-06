@@ -194,64 +194,80 @@ describe('LotteryGame', () => {
         }
     });
 
-    // it('should pick the winners and distribute the prize once the time period to enter the lottery is finished', async () => {
-    //     for (let i = 0; i < 100; i++) {
-    //         const player = await blockchain.treasury('t6-player' + i);
-    //         await lotteryGame.send(
-    //             player.getSender(),
-    //             {
-    //                 value: toNano('1'),
-    //             },
-    //             {
-    //                 $$type: 'BuyNumber',
-    //                 num: BigInt(i),
-    //             },
-    //         );
-    //     }
-    //     const playersBefore = await lotteryGame.getCurrentPlayers();
-    //     expect(playersBefore).toBe(100n);
-    //     // const player = await blockchain.treasury('t6-player' + 99);
-    //     // const player100 = await lotteryGame.getPlayer(99n);
-    //     // console.log('Player 0:', player100);
-    //     // expect(player100?.toString()).toEqual(player.address.toString());
-    //     // const lotteryPotBefore = await lotteryGame.getBalance();
-    //     // console.log('Lottery pot before:', lotteryPotBefore);
-    //     let winnersMap = Dictionary.empty(Dictionary.Keys.Uint(16), Dictionary.Values.Uint(8));
-    //     winnersMap.set(50, 1); // one winner takes 50% of the prize
-    //     blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
-    //     console.log('deployer initial balance', fromNano(await deployer.getBalance()));
-    //     const result = await lotteryGame.send(
-    //         deployer.getSender(),
-    //         {
-    //             value: toNano('0.01'),
-    //         },
-    //         {
-    //             $$type: 'InternalPickWinners',
-    //             winnersMap: winnersMap,
-    //         },
-    //     );
-    //     console.log('deployer balance after pick winners', fromNano(await deployer.getBalance()));
-    //     // printTransactionFees(result.transactions);
-    //     expect(result.transactions).toHaveTransaction({
-    //         from: deployer.address,
-    //         to: lotteryGame.address,
-    //         success: true,
-    //     });
-    //     // We'll need only the body of the observed message:
-    //     const emittedMsgBody = result.externals[0].body;
-    //     // Now, let's parse it, knowing that it's a text message.
-    //     // NOTE: In a real-world scenario,
-    //     //       you'd want to check that first or wrap this in a try...catch
-    //     try {
-    //         const firstMsgText = emittedMsgBody.asSlice().loadStringTail();
-    //         console.log(firstMsgText);
-    //     } catch (e) {
-    //         console.error(e);
-    //     }
-    //     // expect(result.transactions).toHaveTransaction({
-    //     //     from: lotteryGame.address,
-    //     //     to: lotteryGame.address,
-    //     //     success: true,
-    //     // });
-    // });
+    it('should pick the winners and distribute the prize once the time period to enter the lottery is finished', async () => {
+        for (let i = 0; i < 100; i++) {
+            const player = await blockchain.treasury('t6-player' + i);
+            await lotteryGame.send(
+                player.getSender(),
+                {
+                    value: toNano('1'),
+                },
+                {
+                    $$type: 'BuyNumber',
+                    num: BigInt(i),
+                },
+            );
+        }
+
+        const playersBefore = await lotteryGame.getCurrentPlayers();
+        expect(playersBefore).toBe(100n);
+
+        const contractBalance = await lotteryGame.getBalance();
+        console.log('contractBalance', contractBalance);
+        const minTonsForStorage = await lotteryGame.getMinTonsForStorage();
+        console.log('minTonsForStorage', minTonsForStorage);
+        const sendTonFee = await lotteryGame.getSendTonFee();
+        const storageFee = '0.001591098';
+        const initialPot =
+            toNano(contractBalance) - toNano(minTonsForStorage) - toNano(sendTonFee) - toNano(storageFee);
+        console.log('initialPot', fromNano(initialPot));
+
+        let winnersMap = Dictionary.empty(Dictionary.Keys.Uint(16), Dictionary.Values.Uint(8));
+        winnersMap.set(100, 1); // one winner takes 50% of the prize
+        // winnersMap.set(20, 2); // two winners take 30% of the prize
+        // winnersMap.set(10, 1); // three winners take 10% of the prize
+        blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
+        const result = await lotteryGame.send(
+            deployer.getSender(),
+            {
+                value: toNano('1'),
+            },
+            {
+                $$type: 'InternalPickWinners',
+                winnersMap: winnersMap,
+            },
+        );
+        // printTransactionFees(result.transactions);
+        expect(result.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: lotteryGame.address,
+            success: true,
+        });
+        expect(result.externals.length).toBe(1);
+        for (let i = 0; i < result.externals.length; i++) {
+            const emittedMsgBody = result.externals[i].body;
+            try {
+                const msgAsSlice = emittedMsgBody.beginParse();
+                const winningNum = msgAsSlice.loadUint(16);
+                const prizeAmount = msgAsSlice.loadUint(16);
+                msgAsSlice.endParse();
+                console.log(
+                    'The winner of the prize is number',
+                    winningNum,
+                    'and the prize is',
+                    prizeAmount,
+                    '% of the pot',
+                );
+                const winner = await blockchain.treasury('t6-player' + winningNum);
+                expect(result.transactions).toHaveTransaction({
+                    from: lotteryGame.address,
+                    to: winner.address,
+                    value: (initialPot * BigInt(prizeAmount)) / 100n,
+                    success: true,
+                });
+            } catch (e) {
+                console.error(`Error processing external ${i}:`, e);
+            }
+        }
+    });
 });
