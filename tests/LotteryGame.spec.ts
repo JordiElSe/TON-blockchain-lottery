@@ -173,7 +173,7 @@ describe('LotteryGame', () => {
         );
         const playersAfter = await lotteryGame.getCurrentPlayers();
         expect(playersAfter).toBe(playersBefore + 1n);
-        const addedPlayer = await lotteryGame.getPlayer(1n);
+        const addedPlayer = await lotteryGame.getPlayerAddress(1n);
         expect(addedPlayer?.toString()).toEqual(deployer.address.toString());
         expect(results.transactions).toHaveTransaction({
             from: deployer.address,
@@ -216,10 +216,9 @@ describe('LotteryGame', () => {
         console.log('contractBalance', contractBalance);
         const minTonsForStorage = await lotteryGame.getMinTonsForStorage();
         console.log('minTonsForStorage', minTonsForStorage);
-        const sendTonFee = await lotteryGame.getSendTonFee();
-        const storageFee = '0.001591098';
-        const initialPot =
-            toNano(contractBalance) - toNano(minTonsForStorage) - toNano(sendTonFee) - toNano(storageFee);
+        // const sendTonFee = await lotteryGame.getSendTonFee();
+        const feesCost = '0.001975594';
+        const initialPot = toNano(contractBalance) - toNano(minTonsForStorage) - toNano(feesCost);
         console.log('initialPot', fromNano(initialPot));
 
         let winnersMap = Dictionary.empty(Dictionary.Keys.Uint(16), Dictionary.Values.Uint(8));
@@ -237,7 +236,7 @@ describe('LotteryGame', () => {
                 winnersMap: winnersMap,
             },
         );
-        // printTransactionFees(result.transactions);
+        printTransactionFees(result.transactions);
         expect(result.transactions).toHaveTransaction({
             from: deployer.address,
             to: lotteryGame.address,
@@ -246,27 +245,34 @@ describe('LotteryGame', () => {
         expect(result.externals.length).toBe(1);
         for (let i = 0; i < result.externals.length; i++) {
             const emittedMsgBody = result.externals[i].body;
-            try {
-                const msgAsSlice = emittedMsgBody.beginParse();
-                const winningNum = msgAsSlice.loadUint(16);
-                const prizeAmount = msgAsSlice.loadUint(16);
-                msgAsSlice.endParse();
-                console.log(
-                    'The winner of the prize is number',
-                    winningNum,
-                    'and the prize is',
-                    prizeAmount,
-                    '% of the pot',
-                );
-                const winner = await blockchain.treasury('t6-player' + winningNum);
-                expect(result.transactions).toHaveTransaction({
-                    from: lotteryGame.address,
-                    to: winner.address,
-                    value: (initialPot * BigInt(prizeAmount)) / 100n,
-                    success: true,
-                });
-            } catch (e) {
-                console.error(`Error processing external ${i}:`, e);
+            const msgAsSlice = emittedMsgBody.beginParse();
+            const winningNum = msgAsSlice.loadUint(16);
+            const prizeAmount = msgAsSlice.loadUint(16);
+            msgAsSlice.endParse();
+            console.log(
+                'The winner of the prize is number',
+                winningNum,
+                'and the prize is',
+                prizeAmount,
+                '% of the pot',
+            );
+            const winner = await blockchain.treasury('t6-player' + winningNum);
+            expect(result.transactions).toHaveTransaction({
+                from: lotteryGame.address,
+                to: winner.address,
+                // value: (initialPot * BigInt(prizeAmount)) / 100n,
+                success: true,
+            });
+            // The winner should be deleted from the list of players to prevent multiple payouts
+            const deletedPlayer = await lotteryGame.getPlayerNum(winner.address);
+            expect(deletedPlayer?.toString()).toBeUndefined();
+            // The winners place should be replaced by the last player or should be null if the last player was the winner
+            const substitutePlayer = await lotteryGame.getPlayerAddress(BigInt(winningNum));
+            if (winningNum != 99) {
+                const lastPlayer = await blockchain.treasury('t6-player' + 99);
+                expect(substitutePlayer?.toString()).toEqual(lastPlayer.address.toString());
+            } else {
+                expect(substitutePlayer?.toString()).toBeUndefined();
             }
         }
     });

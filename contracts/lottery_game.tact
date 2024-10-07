@@ -77,13 +77,13 @@ contract LotteryGame with Deployable, OwnableTransferable {
                 if (winner != null) {
                     dump(myBalance());
                     dump(myBalance()-context().value);
-                    let amountToAward: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value)*key/100 - self.SEND_TON_FEE;
+                    let amountToAward: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value)*key/100;
                     dump(amountToAward);
                     // Send the prize to the winner
                     send(SendParameters{
                         to: winner!!,
                         value: amountToAward,
-                        mode: SendBounceIfActionFail | SendPayGasSeparately
+                        mode: SendBounceIfActionFail
                     });
                     // let emitMsg: StringBuilder = beginString();
                     // emitMsg.append("The winner is ");
@@ -116,8 +116,17 @@ contract LotteryGame with Deployable, OwnableTransferable {
         return self.numPrice.toCoinsString();
     }
 
-    get fun player(ticketNum: Int): Address? {
+    get fun playerAddress(ticketNum: Int): Address? {
         return self.players.get(ticketNum);
+    }
+
+    get fun playerNum(address: Address): Int? {
+        foreach (key, value in self.players) {
+            if (value == address) {
+                return key;
+            }
+        }
+        return null;
     }
 
     get fun lotteryDuration(): Int {
