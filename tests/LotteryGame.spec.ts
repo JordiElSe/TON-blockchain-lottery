@@ -257,12 +257,17 @@ describe('LotteryGame', () => {
                 '% of the pot',
             );
             const winner = await blockchain.treasury('t6-player' + winningNum);
+            const amountToAward = (initialPot * BigInt(prizeAmount)) / 100n;
+            const marginForFees = toNano('0.005');
             expect(result.transactions).toHaveTransaction({
                 from: lotteryGame.address,
                 to: winner.address,
-                // value: (initialPot * BigInt(prizeAmount)) / 100n,
+                value: (x: bigint | undefined) => {
+                    return x !== undefined && x >= amountToAward - marginForFees && x <= amountToAward;
+                },
                 success: true,
             });
+
             // The winner should be deleted from the list of players to prevent multiple payouts
             const deletedPlayer = await lotteryGame.getPlayerNum(winner.address);
             expect(deletedPlayer?.toString()).toBeUndefined();
