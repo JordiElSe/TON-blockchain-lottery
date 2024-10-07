@@ -17,7 +17,6 @@ contract LotteryGame with Deployable, OwnableTransferable {
     // parent: Address;
     // id: Int as uint32;
     const MIN_TONS_FOR_STORAGE: Int = ton("0");
-    const SEND_TON_FEE: Int = ton("0.000159");
     owner: Address;
     players: map<Int as uint16, Address>;
     currentPlayers: Int as uint16;
@@ -64,7 +63,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
     }
 
     receive(msg: InternalPickWinners) {
-        // require(sender() == myAddress(), "Only the contract itself can call this function");
+        require(sender() == myAddress(), "Only the contract itself can call this function");
         let totalSum: Int = 0;
         // Pick the winners
         foreach (key, value in msg.winnersMap) {
@@ -85,10 +84,6 @@ contract LotteryGame with Deployable, OwnableTransferable {
                         value: amountToAward,
                         mode: SendBounceIfActionFail
                     });
-                    // let emitMsg: StringBuilder = beginString();
-                    // emitMsg.append("The winner is ");
-                    // emitMsg.append(winner!!.toString());
-                    // emit(emitMsg.toCell());
                     emit(beginCell().storeUint(winnerNum, 16).storeUint(key, 16).endCell());
                     // Remove the winner from the list of players
                     // and fill its place with the last player
@@ -135,9 +130,5 @@ contract LotteryGame with Deployable, OwnableTransferable {
 
     get fun minTonsForStorage(): String {
         return self.MIN_TONS_FOR_STORAGE.toCoinsString();
-    }
-
-    get fun sendTonFee(): String {
-        return self.SEND_TON_FEE.toCoinsString();
     }
 }

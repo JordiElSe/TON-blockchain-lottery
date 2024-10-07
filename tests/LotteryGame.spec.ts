@@ -209,22 +209,21 @@ describe('LotteryGame', () => {
             );
         }
 
-        const playersBefore = await lotteryGame.getCurrentPlayers();
-        expect(playersBefore).toBe(100n);
+        let totalPlayers = await lotteryGame.getCurrentPlayers();
+        expect(totalPlayers).toBe(100n);
 
         const contractBalance = await lotteryGame.getBalance();
-        console.log('contractBalance', contractBalance);
+        // console.log('contractBalance', contractBalance);
         const minTonsForStorage = await lotteryGame.getMinTonsForStorage();
-        console.log('minTonsForStorage', minTonsForStorage);
+        // console.log('minTonsForStorage', minTonsForStorage);
         // const sendTonFee = await lotteryGame.getSendTonFee();
         const feesCost = '0.001975594';
         const initialPot = toNano(contractBalance) - toNano(minTonsForStorage) - toNano(feesCost);
-        console.log('initialPot', fromNano(initialPot));
+        // console.log('initialPot', fromNano(initialPot));
 
         let winnersMap = Dictionary.empty(Dictionary.Keys.Uint(16), Dictionary.Values.Uint(8));
-        winnersMap.set(100, 1); // one winner takes 50% of the prize
-        // winnersMap.set(20, 2); // two winners take 30% of the prize
-        // winnersMap.set(10, 1); // three winners take 10% of the prize
+        winnersMap.set(50, 1); // one winner takes 50% of the prize
+        winnersMap.set(20, 2); // two winners take 20% of the prize
         blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
         const result = await lotteryGame.send(
             deployer.getSender(),
@@ -232,7 +231,7 @@ describe('LotteryGame', () => {
                 value: toNano('1'),
             },
             {
-                $$type: 'InternalPickWinners',
+                $$type: 'PickWinners',
                 winnersMap: winnersMap,
             },
         );
@@ -242,7 +241,7 @@ describe('LotteryGame', () => {
             to: lotteryGame.address,
             success: true,
         });
-        expect(result.externals.length).toBe(1);
+        expect(result.externals.length).toBe(winnersMap.values().reduce((a, b) => a + b, 0));
         for (let i = 0; i < result.externals.length; i++) {
             const emittedMsgBody = result.externals[i].body;
             const msgAsSlice = emittedMsgBody.beginParse();
@@ -273,8 +272,10 @@ describe('LotteryGame', () => {
             expect(deletedPlayer?.toString()).toBeUndefined();
             // The winners place should be replaced by the last player or should be null if the last player was the winner
             const substitutePlayer = await lotteryGame.getPlayerAddress(BigInt(winningNum));
-            if (winningNum != 99) {
-                const lastPlayer = await blockchain.treasury('t6-player' + 99);
+            // Substract the winner before check as it is zero-based
+            --totalPlayers;
+            if (winningNum != Number(totalPlayers)) {
+                const lastPlayer = await blockchain.treasury('t6-player' + totalPlayers);
                 expect(substitutePlayer?.toString()).toEqual(lastPlayer.address.toString());
             } else {
                 expect(substitutePlayer?.toString()).toBeUndefined();
