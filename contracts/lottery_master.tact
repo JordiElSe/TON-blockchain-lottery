@@ -6,6 +6,7 @@ message CreateLottery {
     maxPlayers: Int as uint16;
     numPrice: Int as coins;
     lotteryDuration: Int? as uint32;
+    devFee: Int as uint8;
 }
 
 contract LotteryMaster with Deployable, OwnableTransferable {
@@ -26,7 +27,7 @@ contract LotteryMaster with Deployable, OwnableTransferable {
         self.requireOwner();
         // require(myBalance() - ton("0.03") >= self.MIN_TONS_FOR_STORAGE, "Not enough balance to deploy a new Lottery Game contract");
         // Deploy a new Lottery contract with the given parameters
-        let init: StateInit = initOf LotteryGame(msg.maxPlayers, msg.numPrice, self.owner, msg.lotteryDuration);
+        let init: StateInit = initOf LotteryGame(msg.maxPlayers, msg.numPrice, self.owner, msg.lotteryDuration, msg.devFee);
         send(SendParameters{
             to: contractAddress(init),
             value: ton("0.03"),
@@ -46,7 +47,7 @@ contract LotteryMaster with Deployable, OwnableTransferable {
         return myBalance().toCoinsString();
     }
 
-    get fun lotteryGameAddress(maxPlayers: Int, numPrice: Int, lotteryDuration: Int?): Address {
-        return contractAddress(initOf LotteryGame(maxPlayers, numPrice, self.owner, lotteryDuration));
+    get fun lotteryGameAddress(maxPlayers: Int, numPrice: Int, lotteryDuration: Int?, devFee: Int): Address {
+        return contractAddress(initOf LotteryGame(maxPlayers, numPrice, self.owner, lotteryDuration, devFee));
     }
 }

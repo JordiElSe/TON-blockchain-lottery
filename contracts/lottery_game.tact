@@ -24,14 +24,16 @@ contract LotteryGame with Deployable, OwnableTransferable {
     numPrice: Int as coins;
     lotteryDuration: Int as uint32; // in seconds
     deployTime: Int as uint32;
+    devFee: Int as uint8;
 
-    init(maxPlayers: Int, numPrice: Int, owner: Address, lotteryDuration: Int?) {
+    init(maxPlayers: Int, numPrice: Int, owner: Address, lotteryDuration: Int?, devFee: Int) {
         self.owner = owner;
         self.deployTime = now();
         self.currentPlayers = 0;
         self.maxPlayers = maxPlayers;
         self.numPrice = numPrice;
         self.lotteryDuration = lotteryDuration != null ? lotteryDuration!! : 7 * 24 * 60 * 60; // 1 week by default
+        self.devFee = devFee;
     }
 
     receive() {
@@ -64,6 +66,13 @@ contract LotteryGame with Deployable, OwnableTransferable {
 
     receive(msg: InternalPickWinners) {
         require(sender() == myAddress(), "Only the contract itself can call this function");
+        // Substract the dev fee
+        let devFeeAmount: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value)*self.devFee/100;
+        send(SendParameters{
+            to: self.owner,
+            value: devFeeAmount,
+            mode: SendBounceIfActionFail
+        });
         let totalSum: Int = 0;
         // Pick the winners
         foreach (key, value in msg.winnersMap) {
@@ -74,10 +83,10 @@ contract LotteryGame with Deployable, OwnableTransferable {
                 let winnerNum: Int = random(0, self.maxPlayers);
                 let winner: Address? = self.players.get(winnerNum);
                 if (winner != null) {
-                    dump(myBalance());
-                    dump(myBalance()-context().value);
-                    let amountToAward: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value)*key/100;
-                    dump(amountToAward);
+                    // dump(myBalance());
+                    // dump(myBalance()-context().value);
+                    let amountToAward: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value-devFeeAmount)*key/100;
+                    // dump(amountToAward);
                     // Send the prize to the winner
                     send(SendParameters{
                         to: winner!!,
@@ -130,5 +139,9 @@ contract LotteryGame with Deployable, OwnableTransferable {
 
     get fun minTonsForStorage(): String {
         return self.MIN_TONS_FOR_STORAGE.toCoinsString();
+    }
+
+    get fun devFee(): Int {
+        return self.devFee;
     }
 }

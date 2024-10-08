@@ -13,7 +13,9 @@ describe('LotteryGame', () => {
 
         deployer = await blockchain.treasury('deployer');
 
-        lotteryGame = blockchain.openContract(await LotteryGame.fromInit(100n, toNano('1'), deployer.address, null));
+        lotteryGame = blockchain.openContract(
+            await LotteryGame.fromInit(100n, toNano('1'), deployer.address, null, 10n),
+        );
         const deployResult = await lotteryGame.send(
             deployer.getSender(),
             {
@@ -216,14 +218,16 @@ describe('LotteryGame', () => {
         // console.log('contractBalance', contractBalance);
         const minTonsForStorage = await lotteryGame.getMinTonsForStorage();
         // console.log('minTonsForStorage', minTonsForStorage);
-        // const sendTonFee = await lotteryGame.getSendTonFee();
-        const feesCost = '0.001975594';
-        const initialPot = toNano(contractBalance) - toNano(minTonsForStorage) - toNano(feesCost);
+        const devFee = await lotteryGame.getDevFee();
+        const amountForDevs = ((toNano(contractBalance) - toNano(minTonsForStorage)) * devFee) / 100n;
+        const initialPot = toNano(contractBalance) - toNano(minTonsForStorage) - amountForDevs;
         // console.log('initialPot', fromNano(initialPot));
+        const marginForFees = toNano('0.005');
 
         let winnersMap = Dictionary.empty(Dictionary.Keys.Uint(16), Dictionary.Values.Uint(8));
-        winnersMap.set(50, 1); // one winner takes 50% of the prize
+        winnersMap.set(30, 1); // one winner takes 50% of the prize
         winnersMap.set(20, 2); // two winners take 20% of the prize
+        winnersMap.set(10, 3); // three winners take 10% of the prize
         blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
         const result = await lotteryGame.send(
             deployer.getSender(),
@@ -235,10 +239,19 @@ describe('LotteryGame', () => {
                 winnersMap: winnersMap,
             },
         );
-        printTransactionFees(result.transactions);
+        // printTransactionFees(result.transactions);
         expect(result.transactions).toHaveTransaction({
             from: deployer.address,
             to: lotteryGame.address,
+            success: true,
+        });
+        // Should have deducted dev fees
+        expect(result.transactions).toHaveTransaction({
+            from: lotteryGame.address,
+            to: deployer.address,
+            value: (x: bigint | undefined) => {
+                return x !== undefined && x >= amountForDevs - marginForFees && x <= amountForDevs;
+            },
             success: true,
         });
         expect(result.externals.length).toBe(winnersMap.values().reduce((a, b) => a + b, 0));
@@ -248,16 +261,15 @@ describe('LotteryGame', () => {
             const winningNum = msgAsSlice.loadUint(16);
             const prizeAmount = msgAsSlice.loadUint(16);
             msgAsSlice.endParse();
-            console.log(
-                'The winner of the prize is number',
-                winningNum,
-                'and the prize is',
-                prizeAmount,
-                '% of the pot',
-            );
+            // console.log(
+            //     'The winner of the prize is number',
+            //     winningNum,
+            //     'and the prize is',
+            //     prizeAmount,
+            //     '% of the pot',
+            // );
             const winner = await blockchain.treasury('t6-player' + winningNum);
             const amountToAward = (initialPot * BigInt(prizeAmount)) / 100n;
-            const marginForFees = toNano('0.005');
             expect(result.transactions).toHaveTransaction({
                 from: lotteryGame.address,
                 to: winner.address,
@@ -281,5 +293,47 @@ describe('LotteryGame', () => {
                 expect(substitutePlayer?.toString()).toBeUndefined();
             }
         }
+        //Expect the contract's remaining balance to be the 1 TON send in the message minus the fees
+        expect(Number(await lotteryGame.getBalance())).toBeLessThan(1);
+    });
+
+    it('should not send any prize if the winning number is not owned by any player', async () => {
+        // Send 100 TON to the contract to have enough balance for the prize
+        await lotteryGame.send(
+            deployer.getSender(),
+            {
+                value: toNano('100'),
+            },
+            null,
+        );
+        const contractBalanceBefore = await lotteryGame.getBalance();
+        let winnersMap = Dictionary.empty(Dictionary.Keys.Uint(16), Dictionary.Values.Uint(8));
+        winnersMap.set(100, 1); // one winner takes 100% of the prize
+        blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
+        const result = await lotteryGame.send(
+            deployer.getSender(),
+            {
+                value: toNano('1'),
+            },
+            {
+                $$type: 'PickWinners',
+                winnersMap: winnersMap,
+            },
+        );
+        expect(result.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: lotteryGame.address,
+            success: true,
+        });
+        expect(result.externals.length).toBe(0);
+
+        const devFee = await lotteryGame.getDevFee();
+        const minTonsForStorage = await lotteryGame.getMinTonsForStorage();
+        const amountForDevs = ((toNano(contractBalanceBefore) - toNano(minTonsForStorage)) * devFee) / 100n;
+        const initialPot = toNano(contractBalanceBefore) - toNano(minTonsForStorage) - amountForDevs;
+        const contractBalanceAfter = await lotteryGame.getBalance();
+
+        // No prize money should have been sent
+        expect(Number(contractBalanceAfter)).toBeGreaterThan(Number(fromNano(initialPot)));
     });
 });
