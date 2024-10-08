@@ -4,7 +4,7 @@ import { NetworkProvider } from '@ton/blueprint';
 
 export async function run(provider: NetworkProvider) {
     const lotteryGame = provider.open(
-        await LotteryGame.fromInit(100n, toNano('0.01'), provider.sender().address!!, null),
+        await LotteryGame.fromInit(100n, toNano('0.01'), provider.sender().address!!, null, 10n),
     );
 
     await lotteryGame.send(

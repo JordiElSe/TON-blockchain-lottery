@@ -15,6 +15,7 @@ export async function run(provider: NetworkProvider) {
             maxPlayers: 100n,
             numPrice: toNano('0.01'),
             lotteryDuration: 100n,
+            devFee: 10n,
         },
     );
     // run methods on `lotteryMaster`
