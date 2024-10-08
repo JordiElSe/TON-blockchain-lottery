@@ -13,6 +13,10 @@ message InternalPickWinners {
     winnersMap: map<Int as uint8, Int as uint16>;
 }
 
+message TransferRemainingPotBalance {
+    to: Address;
+}
+
 contract LotteryGame with Deployable, OwnableTransferable {
     // parent: Address;
     // id: Int as uint32;
@@ -102,6 +106,15 @@ contract LotteryGame with Deployable, OwnableTransferable {
                 }
             }
         }
+    }
+
+    receive(msg: TransferRemainingPotBalance) {
+        require(sender() == self.owner, "Only the owner can call this function");
+        send(SendParameters{
+            to: msg.to,
+            value: myBalance(),
+            mode: SendBounceIfActionFail | SendDestroyIfZero
+        });
     }
 
     get fun balance(): String {
