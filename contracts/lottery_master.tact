@@ -36,7 +36,14 @@ contract LotteryMaster with Deployable, OwnableTransferable {
             data: init.data
         });
 
-        self.reply("Lottery created".asComment());
+        // self.reply("Lottery created".asComment());
+        send(SendParameters{
+            // bounce is set to true by default
+            to: sender(), // sending message back to the sender
+            value: 0, // don't add Toncoins to the message...
+            mode: SendRemainingValue, // ...except for ones received from the sender due to SendRemainingValue
+            body: "Lottery created".asComment(), // asComment converts a String to a Cell with a comment
+    });
     }
 
     get fun id(): Int {

@@ -17,6 +17,14 @@ message TransferRemainingPotBalance {
     to: Address;
 }
 
+struct Data {
+    deployTime: Int as uint32;
+    currentPlayers: Int as uint16;
+    maxPlayers: Int as uint16;
+    numPrice: Int as coins;
+    lotteryDuration: Int as uint32;
+}
+
 contract LotteryGame with Deployable, OwnableTransferable {
     // parent: Address;
     // id: Int as uint32;
@@ -156,5 +164,15 @@ contract LotteryGame with Deployable, OwnableTransferable {
 
     get fun devFee(): Int {
         return self.devFee;
+    }
+
+    get fun data(): Data {
+        return Data {
+            deployTime: self.deployTime, 
+            currentPlayers: self.currentPlayers,
+            maxPlayers: self.maxPlayers,
+            numPrice: self.numPrice,
+            lotteryDuration: self.lotteryDuration
+        };
     }
 }

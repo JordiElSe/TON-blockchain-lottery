@@ -14,3 +14,7 @@ dist
 
 # VIM
 Session.vim
+
+# local env files
+.env*.local
+.env
