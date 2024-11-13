@@ -19,7 +19,8 @@ message TransferRemainingPotBalance {
 
 struct Data {
     deployTime: Int as uint32;
-    currentPlayers: Int as uint16;
+    currentNumOfPlayers: Int as uint16;
+    currentPlayers: map<Int as uint16, Address>;
     maxPlayers: Int as uint16;
     numPrice: Int as coins;
     lotteryDuration: Int as uint32;
@@ -30,8 +31,8 @@ contract LotteryGame with Deployable, OwnableTransferable {
     // id: Int as uint32;
     const MIN_TONS_FOR_STORAGE: Int = ton("0");
     owner: Address;
-    players: map<Int as uint16, Address>;
-    currentPlayers: Int as uint16;
+    currentPlayers: map<Int as uint16, Address>;
+    currentNumOfPlayers: Int as uint16;
     maxPlayers: Int as uint16;
     numPrice: Int as coins;
     lotteryDuration: Int as uint32; // in seconds
@@ -41,7 +42,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
     init(maxPlayers: Int, numPrice: Int, owner: Address, lotteryDuration: Int?, devFee: Int) {
         self.owner = owner;
         self.deployTime = now();
-        self.currentPlayers = 0;
+        self.currentNumOfPlayers = 0;
         self.maxPlayers = maxPlayers;
         self.numPrice = numPrice;
         self.lotteryDuration = lotteryDuration != null ? lotteryDuration!! : 7 * 24 * 60 * 60; // 1 week by default
@@ -54,12 +55,12 @@ contract LotteryGame with Deployable, OwnableTransferable {
 
     receive(msg: BuyNumber) {
         require(msg.num >= 0 && msg.num < self.maxPlayers, "Invalid number");
-        // require(self.currentPlayers < self.maxPlayers, "Lottery is full");
+        // require(self.currentNumOfPlayers < self.maxPlayers, "Lottery is full");
         require(context().value >= self.numPrice, "Not enough funds to buy a ticket");
-        require(self.players.get(msg.num) == null, "Number already taken");
+        require(self.currentPlayers.get(msg.num) == null, "Number already taken");
         // Add the player to the list of players
-        self.players.set(msg.num, sender());
-        self.currentPlayers += 1;
+        self.currentPlayers.set(msg.num, sender());
+        self.currentNumOfPlayers += 1;
         let emitMsg: StringBuilder = beginString();
         emitMsg.append("You bought the number ");
         emitMsg.append(msg.num.toString());
@@ -93,7 +94,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
                 require(totalSum <= 100, "Invalid winners map");
                 nativeRandomizeLt();
                 let winnerNum: Int = random(0, self.maxPlayers);
-                let winner: Address? = self.players.get(winnerNum);
+                let winner: Address? = self.currentPlayers.get(winnerNum);
                 if (winner != null) {
                     // dump(myBalance());
                     // dump(myBalance()-context().value);
@@ -108,8 +109,8 @@ contract LotteryGame with Deployable, OwnableTransferable {
                     emit(beginCell().storeUint(winnerNum, 16).storeUint(key, 16).endCell());
                     // Remove the winner from the list of players
                     // and fill its place with the last player
-                    self.players.set(winnerNum, self.players.get(self.maxPlayers-1));
-                    self.players.del(self.maxPlayers-1);
+                    self.currentPlayers.set(winnerNum, self.currentPlayers.get(self.maxPlayers-1));
+                    self.currentPlayers.del(self.maxPlayers-1);
                     self.maxPlayers -= 1;
                 }
             }
@@ -129,7 +130,11 @@ contract LotteryGame with Deployable, OwnableTransferable {
         return myBalance().toCoinsString();
     }
 
-    get fun currentPlayers(): Int {
+    get fun currentNumOfPlayers(): Int {
+        return self.currentNumOfPlayers;
+    }
+
+    get fun currentPlayers(): map<Int as uint16, Address> {
         return self.currentPlayers;
     }
 
@@ -142,11 +147,11 @@ contract LotteryGame with Deployable, OwnableTransferable {
     }
 
     get fun playerAddress(ticketNum: Int): Address? {
-        return self.players.get(ticketNum);
+        return self.currentPlayers.get(ticketNum);
     }
 
     get fun playerNum(address: Address): Int? {
-        foreach (key, value in self.players) {
+        foreach (key, value in self.currentPlayers) {
             if (value == address) {
                 return key;
             }
@@ -169,6 +174,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
     get fun data(): Data {
         return Data {
             deployTime: self.deployTime, 
+            currentNumOfPlayers: self.currentNumOfPlayers,
             currentPlayers: self.currentPlayers,
             maxPlayers: self.maxPlayers,
             numPrice: self.numPrice,

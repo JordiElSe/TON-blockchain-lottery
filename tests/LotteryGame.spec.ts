@@ -94,7 +94,7 @@ describe('LotteryGame', () => {
                 num: 1n,
             },
         );
-        const playersBefore = await lotteryGame.getCurrentPlayers();
+        const playersBefore = await lotteryGame.getCurrentNumOfPlayers();
         expect(result1.transactions).toHaveTransaction({
             from: player1.address,
             to: lotteryGame.address,
@@ -110,7 +110,7 @@ describe('LotteryGame', () => {
                 num: 1n,
             },
         );
-        const playersAfter = await lotteryGame.getCurrentPlayers();
+        const playersAfter = await lotteryGame.getCurrentNumOfPlayers();
         expect(result2.transactions).toHaveTransaction({
             from: player2.address,
             to: lotteryGame.address,
@@ -120,7 +120,7 @@ describe('LotteryGame', () => {
     });
 
     it('should not buy invalid number', async () => {
-        const playersBefore = await lotteryGame.getCurrentPlayers();
+        const playersBefore = await lotteryGame.getCurrentNumOfPlayers();
         const result = await lotteryGame.send(
             deployer.getSender(),
             {
@@ -131,7 +131,7 @@ describe('LotteryGame', () => {
                 num: 100n,
             },
         );
-        const playersAfter = await lotteryGame.getCurrentPlayers();
+        const playersAfter = await lotteryGame.getCurrentNumOfPlayers();
         expect(playersAfter).toEqual(playersBefore);
         expect(result.transactions).toHaveTransaction({
             from: deployer.address,
@@ -141,7 +141,7 @@ describe('LotteryGame', () => {
     });
 
     it('should not buy number for less than it costs', async () => {
-        const playersBefore = await lotteryGame.getCurrentPlayers();
+        const playersBefore = await lotteryGame.getCurrentNumOfPlayers();
         const results = await lotteryGame.send(
             deployer.getSender(),
             {
@@ -152,7 +152,7 @@ describe('LotteryGame', () => {
                 num: 0n,
             },
         );
-        const playersAfter = await lotteryGame.getCurrentPlayers();
+        const playersAfter = await lotteryGame.getCurrentNumOfPlayers();
         expect(playersAfter).toEqual(playersBefore);
         expect(results.transactions).toHaveTransaction({
             from: deployer.address,
@@ -162,7 +162,7 @@ describe('LotteryGame', () => {
     });
 
     it('should buy number when available and the payed price is correct', async () => {
-        const playersBefore = await lotteryGame.getCurrentPlayers();
+        const playersBefore = await lotteryGame.getCurrentNumOfPlayers();
         const results = await lotteryGame.send(
             deployer.getSender(),
             {
@@ -173,7 +173,7 @@ describe('LotteryGame', () => {
                 num: 1n,
             },
         );
-        const playersAfter = await lotteryGame.getCurrentPlayers();
+        const playersAfter = await lotteryGame.getCurrentNumOfPlayers();
         expect(playersAfter).toBe(playersBefore + 1n);
         const addedPlayer = await lotteryGame.getPlayerAddress(1n);
         expect(addedPlayer?.toString()).toEqual(deployer.address.toString());
@@ -211,7 +211,7 @@ describe('LotteryGame', () => {
             );
         }
 
-        let totalPlayers = await lotteryGame.getCurrentPlayers();
+        let totalPlayers = await lotteryGame.getCurrentNumOfPlayers();
         expect(totalPlayers).toBe(100n);
 
         const contractBalance = await lotteryGame.getBalance();
