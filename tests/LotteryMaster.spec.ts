@@ -59,6 +59,7 @@ describe('LotteryMaster', () => {
                 maxPlayers: 100n,
                 numPrice: toNano('0.01'),
                 lotteryDuration: null,
+                devFee: 10n,
             },
         );
 
@@ -80,6 +81,7 @@ describe('LotteryMaster', () => {
                 maxPlayers: 100n,
                 numPrice: toNano('0.01'),
                 lotteryDuration: null,
+                devFee: 10n,
             },
         );
 
@@ -100,16 +102,25 @@ describe('LotteryMaster', () => {
     });
 
     it('should create a lottery game with the specified parameters', async () => {
+        await lotteryMaster.send(
+            deployer.getSender(),
+            {
+                value: toNano('10'),
+            },
+            null,
+        );
+        console.log('contract balance', await lotteryMaster.getBalance());
         const result = await lotteryMaster.send(
             deployer.getSender(),
             {
-                value: toNano('0.05'),
+                value: toNano('100'),
             },
             {
                 $$type: 'CreateLottery',
                 maxPlayers: 100n,
                 numPrice: toNano('0.01'),
                 lotteryDuration: null,
+                devFee: 10n,
             },
         );
 
@@ -119,7 +130,13 @@ describe('LotteryMaster', () => {
             success: true,
         });
 
-        const lotteryGameAddr = await lotteryMaster.getLotteryGameAddress(100n, toNano('0.01'), null);
+        // expect(result.transactions).toHaveTransaction({
+        //     from: lotteryMaster.address,
+        //     to: deployer.address,
+        //     success: true,
+        // });
+
+        const lotteryGameAddr = await lotteryMaster.getLotteryGameAddress(100n, toNano('0.01'), null, 10n);
         const lotteryGame = blockchain.openContract(LotteryGame.fromAddress(lotteryGameAddr));
 
         // console.log('lotteryGame parameters:');
