@@ -3,7 +3,7 @@ import { LotteryMaster } from '../wrappers/LotteryMaster';
 import { NetworkProvider } from '@ton/blueprint';
 
 export async function run(provider: NetworkProvider) {
-    const lotteryMaster = provider.open(await LotteryMaster.fromInit(3n));
+    const lotteryMaster = provider.open(await LotteryMaster.fromInit(41n));
 
     await lotteryMaster.send(
         provider.sender(),

@@ -3,12 +3,12 @@ import { LotteryMaster } from '../wrappers/LotteryMaster';
 import { NetworkProvider } from '@ton/blueprint';
 
 export async function run(provider: NetworkProvider) {
-    const lotteryMaster = provider.open(await LotteryMaster.fromInit(561345n));
+    const lotteryMaster = provider.open(await LotteryMaster.fromInit(98n));
 
     await lotteryMaster.send(
         provider.sender(),
         {
-            value: toNano('0.05'),
+            value: toNano('0.1'),
         },
         {
             $$type: 'CreateLottery',
