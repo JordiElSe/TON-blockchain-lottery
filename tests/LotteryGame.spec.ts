@@ -225,7 +225,7 @@ describe('LotteryGame', () => {
         const marginForFees = toNano('0.005');
 
         let winnersMap = Dictionary.empty(Dictionary.Keys.Uint(16), Dictionary.Values.Uint(8));
-        winnersMap.set(30, 1); // one winner takes 50% of the prize
+        winnersMap.set(30, 1); // one winner takes 30% of the prize
         winnersMap.set(20, 2); // two winners take 20% of the prize
         winnersMap.set(10, 3); // three winners take 10% of the prize
         blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
