@@ -5,12 +5,6 @@ message BuyNumber {
     num: Int as uint16;
 }
 
-message PickWinners {
-}
-
-message InternalPickWinners {
-}
-
 message TransferRemainingPotBalance {
     to: Address;
 }
@@ -22,7 +16,7 @@ struct LotteryData {
     maxPlayers: Int as uint16;
     numPrice: Int as coins;
     lotteryDuration: Int as uint32;
-    devFee: Int as uint8;
+    devFee: Int as coins;
     winnersMap: map<Int as uint64, Int as uint16>;
 }
 
@@ -42,7 +36,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
     numPrice: Int as coins;
     lotteryDuration: Int as uint32; // in seconds
     deployTime: Int as uint32;
-    devFee: Int as uint8;
+    devFee: Int as coins;
     winnersMap: map<Int as uint64, Int as uint16>;
 
     init(maxPlayers: Int, numPrice: Int, owner: Address, lotteryDuration: Int?, devFee: Int, winnersMap: map<Int as uint64, Int as uint16>) {
@@ -74,17 +68,17 @@ contract LotteryGame with Deployable, OwnableTransferable {
         // emit(emitMsg.toCell());
     }
 
-    receive(msg: PickWinners) {
+    receive("PickWinners") {
         require(now() - self.deployTime >= self.lotteryDuration, "Lottery is not over");
         send(SendParameters{
             to: myAddress(),
             value: 0,
             mode: SendRemainingValue | SendBounceIfActionFail,
-            body: InternalPickWinners{}.toCell()
+             body: "InternalPickWinners".asComment()
         });
     }
 
-    receive(msg: InternalPickWinners) {
+    receive("InternalPickWinners") {
         require(sender() == myAddress(), "Only the contract itself can call this function");
         // Substract the dev fee
         // let devFeeAmount: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value)*self.devFee/100;

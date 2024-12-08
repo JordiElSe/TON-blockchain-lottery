@@ -6,7 +6,7 @@ message CreateLottery {
     maxPlayers: Int as uint16;
     numPrice: Int as coins;
     lotteryDuration: Int? as uint32;
-    devFee: Int as uint8;
+    devFee: Int as coins;
     winnersMap: map<Int as uint64, Int as uint16>;
 }
 

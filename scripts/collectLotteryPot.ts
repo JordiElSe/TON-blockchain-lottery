@@ -1,7 +1,7 @@
 import { toNano } from '@ton/core';
 import { LotteryGame } from '../wrappers/LotteryGame';
 import { NetworkProvider } from '@ton/blueprint';
-import { Dictionary } from '@ton/core';
+import { Dictionary, Address, Contract } from '@ton/core';
 
 export async function run(provider: NetworkProvider) {
     let winnersMap = Dictionary.empty(Dictionary.Keys.BigInt(64), Dictionary.Values.Uint(16));
@@ -19,12 +19,8 @@ export async function run(provider: NetworkProvider) {
             value: toNano('0.05'),
         },
         {
-            $$type: 'Deploy',
-            queryId: 0n,
+            $$type: 'TransferRemainingPotBalance',
+            to: provider.sender().address!!,
         },
     );
-
-    await provider.waitForDeploy(lotteryGame.address);
-
-    // run methods on `lotteryGame`
 }
