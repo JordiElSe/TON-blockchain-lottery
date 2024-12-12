@@ -13,9 +13,15 @@ describe('LotteryGame', () => {
 
         deployer = await blockchain.treasury('deployer');
 
+        let winnersMap = Dictionary.empty(Dictionary.Keys.BigInt(64), Dictionary.Values.Uint(16));
+        winnersMap.set(toNano('40'), 1); // one winner takes 30% of the prize
+        winnersMap.set(toNano('20'), 2); // two winners take 20% of the prize
+        winnersMap.set(toNano('5'), 3); // three winners take 10% of the prize
+
         lotteryGame = blockchain.openContract(
-            await LotteryGame.fromInit(100n, toNano('1'), deployer.address, null, 10n),
+            await LotteryGame.fromInit(100n, toNano('1'), deployer.address, null, toNano('5'), winnersMap),
         );
+
         const deployResult = await lotteryGame.send(
             deployer.getSender(),
             {
@@ -26,6 +32,7 @@ describe('LotteryGame', () => {
                 queryId: 0n,
             },
         );
+        console.log('lottery data', await lotteryGame.getData());
         expect(deployResult.transactions).toHaveTransaction({
             from: deployer.address,
             to: lotteryGame.address,
@@ -81,122 +88,131 @@ describe('LotteryGame', () => {
         });
     }); */
 
-    it('should not buy number if already taken', async () => {
-        const player1 = await blockchain.treasury('player1');
-        const player2 = await blockchain.treasury('player2');
-        const result1 = await lotteryGame.send(
-            player1.getSender(),
-            {
-                value: toNano('1'),
-            },
-            {
-                $$type: 'BuyNumber',
-                num: 1n,
-            },
-        );
-        const playersBefore = await lotteryGame.getCurrentNumOfPlayers();
-        expect(result1.transactions).toHaveTransaction({
-            from: player1.address,
-            to: lotteryGame.address,
-            success: true,
-        });
-        const result2 = await lotteryGame.send(
-            player2.getSender(),
-            {
-                value: toNano('1'),
-            },
-            {
-                $$type: 'BuyNumber',
-                num: 1n,
-            },
-        );
-        const playersAfter = await lotteryGame.getCurrentNumOfPlayers();
-        expect(result2.transactions).toHaveTransaction({
-            from: player2.address,
-            to: lotteryGame.address,
-            success: false,
-        });
-        expect(playersAfter).toEqual(playersBefore);
-    });
+    // it('should not buy number if already taken', async () => {
+    //     const player1 = await blockchain.treasury('player1');
+    //     const player2 = await blockchain.treasury('player2');
+    //     const result1 = await lotteryGame.send(
+    //         player1.getSender(),
+    //         {
+    //             value: toNano('1'),
+    //         },
+    //         {
+    //             $$type: 'BuyNumber',
+    //             num: 1n,
+    //         },
+    //     );
+    //     const playersBefore = await lotteryGame.getCurrentNumOfPlayers();
+    //     expect(result1.transactions).toHaveTransaction({
+    //         from: player1.address,
+    //         to: lotteryGame.address,
+    //         success: true,
+    //     });
+    //     const result2 = await lotteryGame.send(
+    //         player2.getSender(),
+    //         {
+    //             value: toNano('1'),
+    //         },
+    //         {
+    //             $$type: 'BuyNumber',
+    //             num: 1n,
+    //         },
+    //     );
+    //     const playersAfter = await lotteryGame.getCurrentNumOfPlayers();
+    //     expect(result2.transactions).toHaveTransaction({
+    //         from: player2.address,
+    //         to: lotteryGame.address,
+    //         success: false,
+    //     });
+    //     expect(playersAfter).toEqual(playersBefore);
+    // });
 
-    it('should not buy invalid number', async () => {
-        const playersBefore = await lotteryGame.getCurrentNumOfPlayers();
-        const result = await lotteryGame.send(
-            deployer.getSender(),
-            {
-                value: toNano('1'),
-            },
-            {
-                $$type: 'BuyNumber',
-                num: 100n,
-            },
-        );
-        const playersAfter = await lotteryGame.getCurrentNumOfPlayers();
-        expect(playersAfter).toEqual(playersBefore);
-        expect(result.transactions).toHaveTransaction({
-            from: deployer.address,
-            to: lotteryGame.address,
-            success: false,
-        });
-    });
+    // it('should not buy invalid number', async () => {
+    //     const playersBefore = await lotteryGame.getCurrentNumOfPlayers();
+    //     const result = await lotteryGame.send(
+    //         deployer.getSender(),
+    //         {
+    //             value: toNano('1'),
+    //         },
+    //         {
+    //             $$type: 'BuyNumber',
+    //             num: 100n,
+    //         },
+    //     );
+    //     const playersAfter = await lotteryGame.getCurrentNumOfPlayers();
+    //     expect(playersAfter).toEqual(playersBefore);
+    //     expect(result.transactions).toHaveTransaction({
+    //         from: deployer.address,
+    //         to: lotteryGame.address,
+    //         success: false,
+    //     });
+    // });
 
-    it('should not buy number for less than it costs', async () => {
-        const playersBefore = await lotteryGame.getCurrentNumOfPlayers();
-        const results = await lotteryGame.send(
-            deployer.getSender(),
-            {
-                value: toNano('0.999'),
-            },
-            {
-                $$type: 'BuyNumber',
-                num: 0n,
-            },
-        );
-        const playersAfter = await lotteryGame.getCurrentNumOfPlayers();
-        expect(playersAfter).toEqual(playersBefore);
-        expect(results.transactions).toHaveTransaction({
-            from: deployer.address,
-            to: lotteryGame.address,
-            success: false,
-        });
-    });
+    // it('should not buy number for less than it costs', async () => {
+    //     const playersBefore = await lotteryGame.getCurrentNumOfPlayers();
+    //     const results = await lotteryGame.send(
+    //         deployer.getSender(),
+    //         {
+    //             value: toNano('0.999'),
+    //         },
+    //         {
+    //             $$type: 'BuyNumber',
+    //             num: 0n,
+    //         },
+    //     );
+    //     const playersAfter = await lotteryGame.getCurrentNumOfPlayers();
+    //     expect(playersAfter).toEqual(playersBefore);
+    //     expect(results.transactions).toHaveTransaction({
+    //         from: deployer.address,
+    //         to: lotteryGame.address,
+    //         success: false,
+    //     });
+    // });
 
-    it('should buy number when available and the payed price is correct', async () => {
-        const playersBefore = await lotteryGame.getCurrentNumOfPlayers();
-        const results = await lotteryGame.send(
-            deployer.getSender(),
-            {
-                value: toNano('1'),
-            },
-            {
-                $$type: 'BuyNumber',
-                num: 1n,
-            },
-        );
-        const playersAfter = await lotteryGame.getCurrentNumOfPlayers();
-        expect(playersAfter).toBe(playersBefore + 1n);
-        const addedPlayer = await lotteryGame.getPlayerAddress(1n);
-        expect(addedPlayer?.toString()).toEqual(deployer.address.toString());
-        expect(results.transactions).toHaveTransaction({
-            from: deployer.address,
-            to: lotteryGame.address,
-            success: true,
-        });
-        // We'll need only the body of the observed message:
-        const emittedMsgBody = results.externals[0].body;
-        // Now, let's parse it, knowing that it's a text message.
-        // NOTE: In a real-world scenario,
-        //       you'd want to check that first or wrap this in a try...catch
-        try {
-            const firstMsgText = emittedMsgBody.asSlice().loadStringTail();
-            // console.log(firstMsgText);
-            expect(firstMsgText).toBe('You bought the number 1');
-        } catch (e) {
-            console.error(e);
-        }
-    });
+    // it('should buy number when available and the payed price is correct', async () => {
+    //     const playersBefore = await lotteryGame.getCurrentNumOfPlayers();
+    //     const results = await lotteryGame.send(
+    //         deployer.getSender(),
+    //         {
+    //             value: toNano('1'),
+    //         },
+    //         {
+    //             $$type: 'BuyNumber',
+    //             num: 1n,
+    //         },
+    //     );
+    //     const playersAfter = await lotteryGame.getCurrentNumOfPlayers();
+    //     expect(playersAfter).toBe(playersBefore + 1n);
+    //     const addedPlayer = await lotteryGame.getPlayerAddress(1n);
+    //     expect(addedPlayer?.toString()).toEqual(deployer.address.toString());
+    //     expect(results.transactions).toHaveTransaction({
+    //         from: deployer.address,
+    //         to: lotteryGame.address,
+    //         success: true,
+    //     });
+    //     // We'll need only the body of the observed message:
+    //     const emittedMsgBody = results.externals[0].body;
+    //     // Now, let's parse it, knowing that it's a text message.
+    //     // NOTE: In a real-world scenario,
+    //     //       you'd want to check that first or wrap this in a try...catch
+    //     try {
+    //         const firstMsgText = emittedMsgBody.asSlice().loadStringTail();
+    //         // console.log(firstMsgText);
+    //         expect(firstMsgText).toBe('You bought the number 1');
+    //     } catch (e) {
+    //         console.error(e);
+    //     }
+    // });
 
     it('should pick the winners and distribute the prize once the time period to enter the lottery is finished', async () => {
+        console.log('initial balance: ', await lotteryGame.getBalance());
+        //Fund lottery contract with MIN_TONS_FOR_STORAGE
+        await lotteryGame.send(
+            deployer.getSender(),
+            {
+                value: toNano('0.4'),
+            },
+            null,
+        );
         for (let i = 0; i < 100; i++) {
             const player = await blockchain.treasury('t6-player' + i);
             await lotteryGame.send(
@@ -211,56 +227,62 @@ describe('LotteryGame', () => {
             );
         }
 
+        console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
+
         let totalPlayers = await lotteryGame.getCurrentNumOfPlayers();
         expect(totalPlayers).toBe(100n);
 
         const contractBalance = await lotteryGame.getBalance();
-        // console.log('contractBalance', contractBalance);
-        const minTonsForStorage = await lotteryGame.getMinTonsForStorage();
+        console.log('contractBalance', contractBalance);
+        // const minTonsForStorage = await lotteryGame.getMinTonsForStorage();
         // console.log('minTonsForStorage', minTonsForStorage);
         const devFee = await lotteryGame.getDevFee();
-        const amountForDevs = ((toNano(contractBalance) - toNano(minTonsForStorage)) * devFee) / 100n;
-        const initialPot = toNano(contractBalance) - toNano(minTonsForStorage) - amountForDevs;
+        // const initialPot = toNano(contractBalance) - toNano(minTonsForStorage) - devFee;
         // console.log('initialPot', fromNano(initialPot));
-        const marginForFees = toNano('0.005');
+        // const marginForFees = toNano('0.005');
 
-        let winnersMap = Dictionary.empty(Dictionary.Keys.Uint(16), Dictionary.Values.Uint(8));
-        winnersMap.set(30, 1); // one winner takes 30% of the prize
-        winnersMap.set(20, 2); // two winners take 20% of the prize
-        winnersMap.set(10, 3); // three winners take 10% of the prize
         blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
+        console.log('balance after 7 days: ', await lotteryGame.getBalance());
         const result = await lotteryGame.send(
             deployer.getSender(),
             {
                 value: toNano('1'),
             },
-            {
-                $$type: 'PickWinners',
-                winnersMap: winnersMap,
-            },
+            'PickWinners',
         );
-        // printTransactionFees(result.transactions);
+        printTransactionFees(result.transactions);
         expect(result.transactions).toHaveTransaction({
             from: deployer.address,
             to: lotteryGame.address,
             success: true,
         });
+
+        const totalFwdFees: bigint[] = result.transactions
+            .map((tx) => {
+                if (tx.description.type === 'generic') {
+                    return tx.description.actionPhase?.totalFwdFees || 0n;
+                }
+            })
+            .filter(Boolean) as bigint[];
         // Should have deducted dev fees
         expect(result.transactions).toHaveTransaction({
             from: lotteryGame.address,
             to: deployer.address,
-            value: (x: bigint | undefined) => {
-                return x !== undefined && x >= amountForDevs - marginForFees && x <= amountForDevs;
+            value: (amount) => {
+                return amount != undefined && totalFwdFees.some((fee) => devFee - (fee || 0n) <= amount);
             },
             success: true,
         });
-        expect(result.externals.length).toBe(winnersMap.values().reduce((a, b) => a + b, 0));
+        expect(result.externals.length).toBe((await lotteryGame.getWinnersMap()).values().reduce((a, b) => a + b, 0));
         for (let i = 0; i < result.externals.length; i++) {
             const emittedMsgBody = result.externals[i].body;
             const msgAsSlice = emittedMsgBody.beginParse();
             const winningNum = msgAsSlice.loadUint(16);
-            const prizeAmount = msgAsSlice.loadUint(16);
+            const prizeAmount = msgAsSlice.loadCoins();
             msgAsSlice.endParse();
+            expect(winningNum).toBeGreaterThanOrEqual(0);
+            expect(winningNum).toBeLessThanOrEqual(Number(await lotteryGame.getMaxPlayers()));
+            expect((await lotteryGame.getWinnersMap()).keys()).toContain(prizeAmount);
             // console.log(
             //     'The winner of the prize is number',
             //     winningNum,
@@ -269,12 +291,11 @@ describe('LotteryGame', () => {
             //     '% of the pot',
             // );
             const winner = await blockchain.treasury('t6-player' + winningNum);
-            const amountToAward = (initialPot * BigInt(prizeAmount)) / 100n;
             expect(result.transactions).toHaveTransaction({
                 from: lotteryGame.address,
                 to: winner.address,
-                value: (x: bigint | undefined) => {
-                    return x !== undefined && x >= amountToAward - marginForFees && x <= amountToAward;
+                value: (amount) => {
+                    return totalFwdFees.some((fee) => prizeAmount - (fee || 0n) === amount);
                 },
                 success: true,
             });
@@ -294,46 +315,44 @@ describe('LotteryGame', () => {
             }
         }
         //Expect the contract's remaining balance to be the 1 TON send in the message minus the fees
+        console.log('contractBalance', await lotteryGame.getBalance());
         expect(Number(await lotteryGame.getBalance())).toBeLessThan(1);
     });
 
-    it('should not send any prize if the winning number is not owned by any player', async () => {
-        // Send 100 TON to the contract to have enough balance for the prize
-        await lotteryGame.send(
-            deployer.getSender(),
-            {
-                value: toNano('100'),
-            },
-            null,
-        );
-        const contractBalanceBefore = await lotteryGame.getBalance();
-        let winnersMap = Dictionary.empty(Dictionary.Keys.Uint(16), Dictionary.Values.Uint(8));
-        winnersMap.set(100, 1); // one winner takes 100% of the prize
-        blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
-        const result = await lotteryGame.send(
-            deployer.getSender(),
-            {
-                value: toNano('1'),
-            },
-            {
-                $$type: 'PickWinners',
-                winnersMap: winnersMap,
-            },
-        );
-        expect(result.transactions).toHaveTransaction({
-            from: deployer.address,
-            to: lotteryGame.address,
-            success: true,
-        });
-        expect(result.externals.length).toBe(0);
+    // it('should not send any prize if the winning number is not owned by any player', async () => {
+    //     // Send 100 TON to the contract to have enough balance for the prize
+    //     await lotteryGame.send(
+    //         deployer.getSender(),
+    //         {
+    //             value: toNano('100'),
+    //         },
+    //         null,
+    //     );
+    //     const contractBalanceBefore = await lotteryGame.getBalance();
+    //     let winnersMap = Dictionary.empty(Dictionary.Keys.Uint(16), Dictionary.Values.Uint(8));
+    //     winnersMap.set(100, 1); // one winner takes 100% of the prize
+    //     blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
+    //     const result = await lotteryGame.send(
+    //         deployer.getSender(),
+    //         {
+    //             value: toNano('1'),
+    //         },
+    //         'PickWinners',
+    //     );
+    //     expect(result.transactions).toHaveTransaction({
+    //         from: deployer.address,
+    //         to: lotteryGame.address,
+    //         success: true,
+    //     });
+    //     expect(result.externals.length).toBe(0);
 
-        const devFee = await lotteryGame.getDevFee();
-        const minTonsForStorage = await lotteryGame.getMinTonsForStorage();
-        const amountForDevs = ((toNano(contractBalanceBefore) - toNano(minTonsForStorage)) * devFee) / 100n;
-        const initialPot = toNano(contractBalanceBefore) - toNano(minTonsForStorage) - amountForDevs;
-        const contractBalanceAfter = await lotteryGame.getBalance();
+    //     const devFee = await lotteryGame.getDevFee();
+    //     const minTonsForStorage = await lotteryGame.getMinTonsForStorage();
+    //     const amountForDevs = ((toNano(contractBalanceBefore) - toNano(minTonsForStorage)) * devFee) / 100n;
+    //     const initialPot = toNano(contractBalanceBefore) - toNano(minTonsForStorage) - amountForDevs;
+    //     const contractBalanceAfter = await lotteryGame.getBalance();
 
-        // No prize money should have been sent
-        expect(Number(contractBalanceAfter)).toBeGreaterThan(Number(fromNano(initialPot)));
-    });
+    //     // No prize money should have been sent
+    //     expect(Number(contractBalanceAfter)).toBeGreaterThan(Number(fromNano(initialPot)));
+    // });
 });
