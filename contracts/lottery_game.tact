@@ -9,6 +9,12 @@ message TransferRemainingPotBalance {
     to: Address;
 }
 
+message AwardPrizes {
+    winners: Cell;
+    // winners: map<Int as uint16, Int as uint64>; // winning num -> quantity
+    // seed: Int as uint32;
+}
+
 struct LotteryData {
     deployTime: Int as uint32;
     currentNumOfPlayers: Int as uint16;
@@ -17,7 +23,7 @@ struct LotteryData {
     numPrice: Int as coins;
     lotteryDuration: Int as uint32;
     devFee: Int as coins;
-    winnersMap: map<Int as uint64, Int as uint16>;
+    prizes: map<Int as uint64, Int as uint16>; // quantity -> num of winners
 }
 
 struct PlayersData {
@@ -26,8 +32,6 @@ struct PlayersData {
 }
 
 contract LotteryGame with Deployable, OwnableTransferable {
-    // parent: Address;
-    // id: Int as uint32;
     // const MIN_TONS_FOR_STORAGE: Int = ton("0.2");
     owner: Address;
     currentPlayers: map<Int as uint16, Address>;
@@ -37,9 +41,9 @@ contract LotteryGame with Deployable, OwnableTransferable {
     lotteryDuration: Int as uint32; // in seconds
     deployTime: Int as uint32;
     devFee: Int as coins;
-    winnersMap: map<Int as uint64, Int as uint16>;
+    prizes: map<Int as uint64, Int as uint16>;
 
-    init(maxPlayers: Int, numPrice: Int, owner: Address, lotteryDuration: Int?, devFee: Int, winnersMap: map<Int as uint64, Int as uint16>) {
+    init(maxPlayers: Int, numPrice: Int, owner: Address, lotteryDuration: Int?, devFee: Int, prizes: map<Int as uint64, Int as uint16>) {
         self.owner = owner;
         self.deployTime = now();
         self.currentNumOfPlayers = 0;
@@ -47,7 +51,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
         self.numPrice = numPrice;
         self.lotteryDuration = lotteryDuration != null ? lotteryDuration!! : 7 * 24 * 60 * 60; // 1 week by default
         self.devFee = devFee;
-        self.winnersMap = winnersMap;
+        self.prizes = prizes;
     }
 
     receive() {
@@ -68,47 +72,26 @@ contract LotteryGame with Deployable, OwnableTransferable {
         // emit(emitMsg.toCell());
     }
 
-    receive("PickWinners") {
+    receive(msg: AwardPrizes) {
+        require(sender() == self.owner, "Only the owner can call this function");
         require(now() - self.deployTime >= self.lotteryDuration, "Lottery is not over");
-        send(SendParameters{
-            to: myAddress(),
-            value: 0,
-            mode: SendRemainingValue | SendBounceIfActionFail,
-            body: "InternalPickWinners".asComment()
-        });
-    }
-
-    receive("InternalPickWinners") {
-        require(sender() == myAddress(), "Only the contract itself can call this function");
-        // let totalSum: Int = 0;
-        foreach (quantity, winners in self.winnersMap) {
+        let winnerNums: Slice = msg.winners.beginParse();
+        foreach(quantity, winners in self.prizes) {
             repeat(winners) {
-                // totalSum += quantity;
-                nativeRandomizeLt();
-                let winnerNum: Int = random(0, self.maxPlayers);
+                let winnerNum: Int = winnerNums.loadUint(16);
+                dump(winnerNum);
+                dump("here");
                 let winner: Address? = self.currentPlayers.get(winnerNum);
                 if (winner != null) {
-                    // dump(myBalance());
-                    // dump(myBalance()-context().value);
-                    // let amountToAward: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value-devFeeAmount)*key/100;
-                    // dump(amountToAward);
-                    // Send the prize to the winner
                     send(SendParameters{
                         to: winner!!,
                         value: quantity,
                         mode: SendBounceIfActionFail
                     });
-                    emit(beginCell().storeUint(winnerNum, 16).storeCoins(quantity).endCell());
-                    // Remove the winner from the list of players
-                    // and fill its place with the last player
-                    self.currentPlayers.set(winnerNum, self.currentPlayers.get(self.maxPlayers-1));
-                    self.currentPlayers.del(self.maxPlayers-1);
-                    self.maxPlayers -= 1;
                 }
             }
         }
-        // Substract the dev fee
-        // let devFeeAmount: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value)*self.devFee/100;
+        //Collect dev fee
         if (self.devFee > 0) {
             send(SendParameters{
                 to: self.owner,
@@ -116,7 +99,65 @@ contract LotteryGame with Deployable, OwnableTransferable {
                 mode: SendRemainingValue | SendBounceIfActionFail
             });
         }
+        // nativeRandomize(msg.seed);
+        // let i = 0;
+        // while (i < 5) {
+        //     let randomNum: Int = nativeRandomInterval(self.maxPlayers);
+        //     dump(randomNum);
+        //     i += 1;
+        // }
+        
     }
+
+    // receive("PickWinners") {
+    //     require(now() - self.deployTime >= self.lotteryDuration, "Lottery is not over");
+    //     send(SendParameters{
+    //         to: myAddress(),
+    //         value: 0,
+    //         mode: SendRemainingValue | SendBounceIfActionFail,
+    //         body: "InternalPickWinners".asComment()
+    //     });
+    // }
+
+    // receive("InternalPickWinners") {
+    //     require(sender() == myAddress(), "Only the contract itself can call this function");
+    //     // let totalSum: Int = 0;
+    //     foreach (quantity, winners in self.prizes) {
+    //         repeat(winners) {
+    //             // totalSum += quantity;
+    //             nativeRandomizeLt();
+    //             let winnerNum: Int = random(0, self.maxPlayers);
+    //             let winner: Address? = self.currentPlayers.get(winnerNum);
+    //             if (winner != null) {
+    //                 // dump(myBalance());
+    //                 // dump(myBalance()-context().value);
+    //                 // let amountToAward: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value-devFeeAmount)*key/100;
+    //                 // dump(amountToAward);
+    //                 // Send the prize to the winner
+    //                 send(SendParameters{
+    //                     to: winner!!,
+    //                     value: quantity,
+    //                     mode: SendBounceIfActionFail
+    //                 });
+    //                 emit(beginCell().storeUint(winnerNum, 16).storeCoins(quantity).endCell());
+    //                 // Remove the winner from the list of players
+    //                 // and fill its place with the last player
+    //                 self.currentPlayers.set(winnerNum, self.currentPlayers.get(self.maxPlayers-1));
+    //                 self.currentPlayers.del(self.maxPlayers-1);
+    //                 self.maxPlayers -= 1;
+    //             }
+    //         }
+    //     }
+    //     // Substract the dev fee
+    //     // let devFeeAmount: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value)*self.devFee/100;
+    //     if (self.devFee > 0) {
+    //         send(SendParameters{
+    //             to: self.owner,
+    //             value: self.devFee,
+    //             mode: SendRemainingValue | SendBounceIfActionFail
+    //         });
+    //     }
+    // }
 
     receive(msg: TransferRemainingPotBalance) {
         require(sender() == self.owner, "Only the owner can call this function");
@@ -181,7 +222,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
             numPrice: self.numPrice,
             lotteryDuration: self.lotteryDuration,
             devFee: self.devFee,
-            winnersMap: self.winnersMap
+            prizes: self.prizes
         };
     }
 
@@ -192,8 +233,8 @@ contract LotteryGame with Deployable, OwnableTransferable {
         };
     }
 
-    get fun winnersMap(): map<Int as uint64, Int as uint16> {
-        return self.winnersMap;
+    get fun prizes(): map<Int as uint64, Int as uint16> {
+        return self.prizes;
     }
 
 }

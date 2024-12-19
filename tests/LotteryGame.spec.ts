@@ -1,5 +1,5 @@
 import { Blockchain, printTransactionFees, SandboxContract, TreasuryContract } from '@ton/sandbox';
-import { Address, toNano, fromNano, Cell, Dictionary } from '@ton/core';
+import { Address, toNano, fromNano, Cell, Dictionary, Builder, beginCell } from '@ton/core';
 import { LotteryGame } from '../wrappers/LotteryGame';
 import '@ton/test-utils';
 
@@ -7,6 +7,8 @@ describe('LotteryGame', () => {
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
     let lotteryGame: SandboxContract<LotteryGame>;
+    const prizeAmounts = [toNano('5'), toNano('20'), toNano('40')];
+    const winnerCounts = [3, 2, 1];
 
     beforeEach(async () => {
         blockchain = await Blockchain.create();
@@ -14,9 +16,9 @@ describe('LotteryGame', () => {
         deployer = await blockchain.treasury('deployer');
 
         let winnersMap = Dictionary.empty(Dictionary.Keys.BigInt(64), Dictionary.Values.Uint(16));
-        winnersMap.set(toNano('40'), 1); // one winner takes 30% of the prize
-        winnersMap.set(toNano('20'), 2); // two winners take 20% of the prize
-        winnersMap.set(toNano('5'), 3); // three winners take 10% of the prize
+        prizeAmounts.forEach((amount, i) => {
+            winnersMap.set(amount, winnerCounts[i]);
+        });
 
         lotteryGame = blockchain.openContract(
             await LotteryGame.fromInit(100n, toNano('1'), deployer.address, null, toNano('5'), winnersMap),
@@ -32,7 +34,7 @@ describe('LotteryGame', () => {
                 queryId: 0n,
             },
         );
-        console.log('lottery data', await lotteryGame.getData());
+        // console.log('lottery data', await lotteryGame.getData());
         expect(deployResult.transactions).toHaveTransaction({
             from: deployer.address,
             to: lotteryGame.address,
@@ -46,6 +48,111 @@ describe('LotteryGame', () => {
     it('should deploy', async () => {
         // the check is done inside beforeEach
         // blockchain and lotteryGame are ready to use
+    });
+
+    it('should parse winning numbers properly', async () => {
+        //Fund lottery contract with MIN_TONS_FOR_STORAGE
+        await lotteryGame.send(
+            deployer.getSender(),
+            {
+                value: toNano('0.4'),
+            },
+            null,
+        );
+        for (let i = 0; i < 100; i++) {
+            const player = await blockchain.treasury('t6-player' + i);
+            await lotteryGame.send(
+                player.getSender(),
+                {
+                    value: toNano('1'),
+                },
+                {
+                    $$type: 'BuyNumber',
+                    num: BigInt(i),
+                },
+            );
+        }
+
+        console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
+
+        let totalPlayers = await lotteryGame.getCurrentNumOfPlayers();
+        expect(totalPlayers).toBe(100n);
+
+        const contractBalance = await lotteryGame.getBalance();
+        console.log('contractBalance', contractBalance);
+        // const minTonsForStorage = await lotteryGame.getMinTonsForStorage();
+        // console.log('minTonsForStorage', minTonsForStorage);
+        const devFee = await lotteryGame.getDevFee();
+        // const initialPot = toNano(contractBalance) - toNano(minTonsForStorage) - devFee;
+        // console.log('initialPot', fromNano(initialPot));
+        // const marginForFees = toNano('0.005');
+
+        blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
+        const winningNums = [43, 22, 12, 55, 87, 74];
+        const cell = winningNums.reduce((cell, num) => cell.storeUint(num, 16), beginCell()).endCell();
+
+        console.log('balance after 7 days: ', await lotteryGame.getBalance());
+        const result = await lotteryGame.send(
+            deployer.getSender(),
+            {
+                value: toNano('0.05'),
+            },
+            {
+                $$type: 'AwardPrizes',
+                winners: cell,
+            },
+        );
+        printTransactionFees(result.transactions);
+        expect(result.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: lotteryGame.address,
+            success: true,
+        });
+
+        // const totalFwdFees: bigint[] = result.transactions
+        //     .map((tx) => {
+        //         console.log(tx.description);
+        //         if (tx.description.type === 'generic') {
+        //             return tx.description.actionPhase?.totalFwdFees || 0n;
+        //         }
+        //     })
+        //     .filter(Boolean) as bigint[];
+        // console.log('totalFwdFees', totalFwdFees);
+        // Should have deducted dev fees
+        expect(result.transactions).toHaveTransaction({
+            from: lotteryGame.address,
+            to: deployer.address,
+            value: (amount) => {
+                return amount != undefined && devFee - toNano('0.0004') <= amount; // devFee minus 0.04% network fee plus the tx's remaining value
+            },
+            success: true,
+        });
+
+        let winningNumsIndex = 0;
+
+        for (let i = 0; i < prizeAmounts.length; i++) {
+            const prizeAmount = prizeAmounts[i];
+            const numWinners = winnerCounts[i];
+
+            for (let j = 0; j < numWinners; j++) {
+                const winningNum = winningNums[winningNumsIndex];
+                const playerAddress = await lotteryGame.getPlayerAddress(BigInt(winningNum));
+                expect(playerAddress).toBeTruthy();
+
+                expect(result.transactions).toHaveTransaction({
+                    from: lotteryGame.address,
+                    to: playerAddress!!,
+                    value: prizeAmount - toNano('0.0004'), // 0.04% network fee
+                    success: true,
+                });
+
+                winningNumsIndex++;
+            }
+        }
+
+        //Expect the contract's remaining balance to be the 1 TON send in the message minus the fees
+        console.log('contractBalance', await lotteryGame.getBalance());
+        expect(Number(await lotteryGame.getBalance())).toBeLessThan(1);
     });
 
     /* it('should not buy number if the lottery is full', async () => {
@@ -203,121 +310,121 @@ describe('LotteryGame', () => {
     //     }
     // });
 
-    it('should pick the winners and distribute the prize once the time period to enter the lottery is finished', async () => {
-        console.log('initial balance: ', await lotteryGame.getBalance());
-        //Fund lottery contract with MIN_TONS_FOR_STORAGE
-        await lotteryGame.send(
-            deployer.getSender(),
-            {
-                value: toNano('0.4'),
-            },
-            null,
-        );
-        for (let i = 0; i < 100; i++) {
-            const player = await blockchain.treasury('t6-player' + i);
-            await lotteryGame.send(
-                player.getSender(),
-                {
-                    value: toNano('1'),
-                },
-                {
-                    $$type: 'BuyNumber',
-                    num: BigInt(i),
-                },
-            );
-        }
+    // it('should pick the winners and distribute the prize once the time period to enter the lottery is finished', async () => {
+    //     console.log('initial balance: ', await lotteryGame.getBalance());
+    //     //Fund lottery contract with MIN_TONS_FOR_STORAGE
+    //     await lotteryGame.send(
+    //         deployer.getSender(),
+    //         {
+    //             value: toNano('0.4'),
+    //         },
+    //         null,
+    //     );
+    //     for (let i = 0; i < 100; i++) {
+    //         const player = await blockchain.treasury('t6-player' + i);
+    //         await lotteryGame.send(
+    //             player.getSender(),
+    //             {
+    //                 value: toNano('1'),
+    //             },
+    //             {
+    //                 $$type: 'BuyNumber',
+    //                 num: BigInt(i),
+    //             },
+    //         );
+    //     }
 
-        console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
+    //     console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
 
-        let totalPlayers = await lotteryGame.getCurrentNumOfPlayers();
-        expect(totalPlayers).toBe(100n);
+    //     let totalPlayers = await lotteryGame.getCurrentNumOfPlayers();
+    //     expect(totalPlayers).toBe(100n);
 
-        const contractBalance = await lotteryGame.getBalance();
-        console.log('contractBalance', contractBalance);
-        // const minTonsForStorage = await lotteryGame.getMinTonsForStorage();
-        // console.log('minTonsForStorage', minTonsForStorage);
-        const devFee = await lotteryGame.getDevFee();
-        // const initialPot = toNano(contractBalance) - toNano(minTonsForStorage) - devFee;
-        // console.log('initialPot', fromNano(initialPot));
-        // const marginForFees = toNano('0.005');
+    //     const contractBalance = await lotteryGame.getBalance();
+    //     console.log('contractBalance', contractBalance);
+    //     // const minTonsForStorage = await lotteryGame.getMinTonsForStorage();
+    //     // console.log('minTonsForStorage', minTonsForStorage);
+    //     const devFee = await lotteryGame.getDevFee();
+    //     // const initialPot = toNano(contractBalance) - toNano(minTonsForStorage) - devFee;
+    //     // console.log('initialPot', fromNano(initialPot));
+    //     // const marginForFees = toNano('0.005');
 
-        blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
-        console.log('balance after 7 days: ', await lotteryGame.getBalance());
-        const result = await lotteryGame.send(
-            deployer.getSender(),
-            {
-                value: toNano('1'),
-            },
-            'PickWinners',
-        );
-        printTransactionFees(result.transactions);
-        expect(result.transactions).toHaveTransaction({
-            from: deployer.address,
-            to: lotteryGame.address,
-            success: true,
-        });
+    //     blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
+    //     console.log('balance after 7 days: ', await lotteryGame.getBalance());
+    //     const result = await lotteryGame.send(
+    //         deployer.getSender(),
+    //         {
+    //             value: toNano('1'),
+    //         },
+    //         'PickWinners',
+    //     );
+    //     printTransactionFees(result.transactions);
+    //     expect(result.transactions).toHaveTransaction({
+    //         from: deployer.address,
+    //         to: lotteryGame.address,
+    //         success: true,
+    //     });
 
-        const totalFwdFees: bigint[] = result.transactions
-            .map((tx) => {
-                if (tx.description.type === 'generic') {
-                    return tx.description.actionPhase?.totalFwdFees || 0n;
-                }
-            })
-            .filter(Boolean) as bigint[];
-        // Should have deducted dev fees
-        expect(result.transactions).toHaveTransaction({
-            from: lotteryGame.address,
-            to: deployer.address,
-            value: (amount) => {
-                return amount != undefined && totalFwdFees.some((fee) => devFee - (fee || 0n) <= amount);
-            },
-            success: true,
-        });
-        expect(result.externals.length).toBe((await lotteryGame.getWinnersMap()).values().reduce((a, b) => a + b, 0));
-        for (let i = 0; i < result.externals.length; i++) {
-            const emittedMsgBody = result.externals[i].body;
-            const msgAsSlice = emittedMsgBody.beginParse();
-            const winningNum = msgAsSlice.loadUint(16);
-            const prizeAmount = msgAsSlice.loadCoins();
-            msgAsSlice.endParse();
-            expect(winningNum).toBeGreaterThanOrEqual(0);
-            expect(winningNum).toBeLessThanOrEqual(Number(await lotteryGame.getMaxPlayers()));
-            expect((await lotteryGame.getWinnersMap()).keys()).toContain(prizeAmount);
-            // console.log(
-            //     'The winner of the prize is number',
-            //     winningNum,
-            //     'and the prize is',
-            //     prizeAmount,
-            //     '% of the pot',
-            // );
-            const winner = await blockchain.treasury('t6-player' + winningNum);
-            expect(result.transactions).toHaveTransaction({
-                from: lotteryGame.address,
-                to: winner.address,
-                value: (amount) => {
-                    return totalFwdFees.some((fee) => prizeAmount - (fee || 0n) === amount);
-                },
-                success: true,
-            });
+    //     const totalFwdFees: bigint[] = result.transactions
+    //         .map((tx) => {
+    //             if (tx.description.type === 'generic') {
+    //                 return tx.description.actionPhase?.totalFwdFees || 0n;
+    //             }
+    //         })
+    //         .filter(Boolean) as bigint[];
+    //     // Should have deducted dev fees
+    //     expect(result.transactions).toHaveTransaction({
+    //         from: lotteryGame.address,
+    //         to: deployer.address,
+    //         value: (amount) => {
+    //             return amount != undefined && totalFwdFees.some((fee) => devFee - (fee || 0n) <= amount);
+    //         },
+    //         success: true,
+    //     });
+    //     expect(result.externals.length).toBe((await lotteryGame.getWinnersMap()).values().reduce((a, b) => a + b, 0));
+    //     for (let i = 0; i < result.externals.length; i++) {
+    //         const emittedMsgBody = result.externals[i].body;
+    //         const msgAsSlice = emittedMsgBody.beginParse();
+    //         const winningNum = msgAsSlice.loadUint(16);
+    //         const prizeAmount = msgAsSlice.loadCoins();
+    //         msgAsSlice.endParse();
+    //         expect(winningNum).toBeGreaterThanOrEqual(0);
+    //         expect(winningNum).toBeLessThanOrEqual(Number(await lotteryGame.getMaxPlayers()));
+    //         expect((await lotteryGame.getWinnersMap()).keys()).toContain(prizeAmount);
+    //         // console.log(
+    //         //     'The winner of the prize is number',
+    //         //     winningNum,
+    //         //     'and the prize is',
+    //         //     prizeAmount,
+    //         //     '% of the pot',
+    //         // );
+    //         const winner = await blockchain.treasury('t6-player' + winningNum);
+    //         expect(result.transactions).toHaveTransaction({
+    //             from: lotteryGame.address,
+    //             to: winner.address,
+    //             value: (amount) => {
+    //                 return totalFwdFees.some((fee) => prizeAmount - (fee || 0n) === amount);
+    //             },
+    //             success: true,
+    //         });
 
-            // The winner should be deleted from the list of players to prevent multiple payouts
-            const deletedPlayer = await lotteryGame.getPlayerNum(winner.address);
-            expect(deletedPlayer?.toString()).toBeUndefined();
-            // The winners place should be replaced by the last player or should be null if the last player was the winner
-            const substitutePlayer = await lotteryGame.getPlayerAddress(BigInt(winningNum));
-            // Substract the winner before check as it is zero-based
-            --totalPlayers;
-            if (winningNum != Number(totalPlayers)) {
-                const lastPlayer = await blockchain.treasury('t6-player' + totalPlayers);
-                expect(substitutePlayer?.toString()).toEqual(lastPlayer.address.toString());
-            } else {
-                expect(substitutePlayer?.toString()).toBeUndefined();
-            }
-        }
-        //Expect the contract's remaining balance to be the 1 TON send in the message minus the fees
-        console.log('contractBalance', await lotteryGame.getBalance());
-        expect(Number(await lotteryGame.getBalance())).toBeLessThan(1);
-    });
+    //         // The winner should be deleted from the list of players to prevent multiple payouts
+    //         const deletedPlayer = await lotteryGame.getPlayerNum(winner.address);
+    //         expect(deletedPlayer?.toString()).toBeUndefined();
+    //         // The winners place should be replaced by the last player or should be null if the last player was the winner
+    //         const substitutePlayer = await lotteryGame.getPlayerAddress(BigInt(winningNum));
+    //         // Substract the winner before check as it is zero-based
+    //         --totalPlayers;
+    //         if (winningNum != Number(totalPlayers)) {
+    //             const lastPlayer = await blockchain.treasury('t6-player' + totalPlayers);
+    //             expect(substitutePlayer?.toString()).toEqual(lastPlayer.address.toString());
+    //         } else {
+    //             expect(substitutePlayer?.toString()).toBeUndefined();
+    //         }
+    //     }
+    //     //Expect the contract's remaining balance to be the 1 TON send in the message minus the fees
+    //     console.log('contractBalance', await lotteryGame.getBalance());
+    //     expect(Number(await lotteryGame.getBalance())).toBeLessThan(1);
+    // });
 
     // it('should not send any prize if the winning number is not owned by any player', async () => {
     //     // Send 100 TON to the contract to have enough balance for the prize
