@@ -11,19 +11,24 @@ message TransferRemainingPotBalance {
 
 message AwardPrizes {
     winners: Cell;
+    maxPlayers: Int? as uint16;
+    numPrice: Int? as coins;
+    lotteryDuration: Int? as uint32;
+    devFee: Int? as coins;
+    prizes: map<Int as uint64, Int as uint16>;
     // winners: map<Int as uint16, Int as uint64>; // winning num -> quantity
     // seed: Int as uint32;
 }
 
 struct LotteryData {
-    deployTime: Int as uint32;
+    startTime: Int as uint32;
     currentNumOfPlayers: Int as uint16;
     currentPlayers: map<Int as uint16, Address>;
     maxPlayers: Int as uint16;
     numPrice: Int as coins;
     lotteryDuration: Int as uint32;
     devFee: Int as coins;
-    prizes: map<Int as uint64, Int as uint16>; // quantity -> num of winners
+    prizes: map<Int as uint64, Int as uint16>;
 }
 
 struct PlayersData {
@@ -39,13 +44,13 @@ contract LotteryGame with Deployable, OwnableTransferable {
     maxPlayers: Int as uint16;
     numPrice: Int as coins;
     lotteryDuration: Int as uint32; // in seconds
-    deployTime: Int as uint32;
+    startTime: Int as uint32;
     devFee: Int as coins;
-    prizes: map<Int as uint64, Int as uint16>;
+    prizes: map<Int as uint64, Int as uint16>; // quantity -> num of winners
 
     init(maxPlayers: Int, numPrice: Int, owner: Address, lotteryDuration: Int?, devFee: Int, prizes: map<Int as uint64, Int as uint16>) {
         self.owner = owner;
-        self.deployTime = now();
+        self.startTime = now();
         self.currentNumOfPlayers = 0;
         self.maxPlayers = maxPlayers;
         self.numPrice = numPrice;
@@ -73,8 +78,9 @@ contract LotteryGame with Deployable, OwnableTransferable {
     }
 
     receive(msg: AwardPrizes) {
-        require(sender() == self.owner, "Only the owner can call this function");
-        require(now() - self.deployTime >= self.lotteryDuration, "Lottery is not over");
+        self.requireOwner();
+        // require(sender() == self.owner, "Only the owner can call this function");
+        require(now() - self.startTime >= self.lotteryDuration, "Lottery is not over");
         let winnerNums: Slice = msg.winners.beginParse();
         foreach(quantity, winners in self.prizes) {
             repeat(winners) {
@@ -99,6 +105,16 @@ contract LotteryGame with Deployable, OwnableTransferable {
                 mode: SendRemainingValue | SendBounceIfActionFail
             });
         }
+
+        // Reset the lottery
+        self.currentPlayers = emptyMap();
+        self.currentNumOfPlayers = 0;
+        self.startTime = now();
+        self.maxPlayers = msg.maxPlayers != null ? msg.maxPlayers!! : self.maxPlayers;
+        self.numPrice = msg.numPrice != null ? msg.numPrice!! : self.numPrice;
+        self.lotteryDuration = msg.lotteryDuration != null ? msg.lotteryDuration!! : self.lotteryDuration;
+        self.devFee = msg.devFee != null ? msg.devFee!! : self.devFee;
+        self.prizes = msg.prizes;
         // nativeRandomize(msg.seed);
         // let i = 0;
         // while (i < 5) {
@@ -110,7 +126,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
     }
 
     // receive("PickWinners") {
-    //     require(now() - self.deployTime >= self.lotteryDuration, "Lottery is not over");
+    //     require(now() - self.startTime >= self.lotteryDuration, "Lottery is not over");
     //     send(SendParameters{
     //         to: myAddress(),
     //         value: 0,
@@ -160,7 +176,8 @@ contract LotteryGame with Deployable, OwnableTransferable {
     // }
 
     receive(msg: TransferRemainingPotBalance) {
-        require(sender() == self.owner, "Only the owner can call this function");
+        self.requireOwner();
+        // require(sender() == self.owner, "Only the owner can call this function");
         send(SendParameters{
             to: msg.to,
             value: myBalance(),
@@ -215,7 +232,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
 
     get fun data(): LotteryData {
         return LotteryData {
-            deployTime: self.deployTime, 
+            startTime: self.startTime, 
             currentNumOfPlayers: self.currentNumOfPlayers,
             currentPlayers: self.currentPlayers,
             maxPlayers: self.maxPlayers,
