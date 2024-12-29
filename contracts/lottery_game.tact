@@ -14,8 +14,8 @@ message AwardPrizes {
     maxPlayers: Int? as uint16;
     numPrice: Int? as coins;
     lotteryDuration: Int? as uint32;
-    devFee: Int? as coins;
-    prizes: map<Int as uint64, Int as uint16>;
+    devFee: Int? as uint8;
+    prizes: map<Int as uint8, Int as uint16>;
     // winners: map<Int as uint16, Int as uint64>; // winning num -> quantity
     // seed: Int as uint32;
 }
@@ -27,8 +27,8 @@ struct LotteryData {
     maxPlayers: Int as uint16;
     numPrice: Int as coins;
     lotteryDuration: Int as uint32;
-    devFee: Int as coins;
-    prizes: map<Int as uint64, Int as uint16>;
+    devFee: Int as uint8;
+    prizes: map<Int as uint8, Int as uint16>;
 }
 
 struct PlayersData {
@@ -45,10 +45,10 @@ contract LotteryGame with Deployable, OwnableTransferable {
     numPrice: Int as coins;
     lotteryDuration: Int as uint32; // in seconds
     startTime: Int as uint32;
-    devFee: Int as coins;
-    prizes: map<Int as uint64, Int as uint16>; // quantity -> num of winners
+    devFee: Int as uint8;
+    prizes: map<Int as uint8, Int as uint16>; // quantity -> num of winners
 
-    init(maxPlayers: Int, numPrice: Int, owner: Address, lotteryDuration: Int?, devFee: Int, prizes: map<Int as uint64, Int as uint16>) {
+    init(maxPlayers: Int, numPrice: Int, owner: Address, lotteryDuration: Int?, devFee: Int, prizes: map<Int as uint8, Int as uint16>) {
         self.owner = owner;
         self.startTime = now();
         self.currentNumOfPlayers = 0;
@@ -78,33 +78,37 @@ contract LotteryGame with Deployable, OwnableTransferable {
     }
 
     receive(msg: AwardPrizes) {
+        dump(myBalance());
+        dump(context().value);
         self.requireOwner();
         // require(sender() == self.owner, "Only the owner can call this function");
         require(now() - self.startTime >= self.lotteryDuration, "Lottery is not over");
         let winnerNums: Slice = msg.winners.beginParse();
+        let initialBalance: Int = myBalance()-context().value;
+        dump(initialBalance);
         foreach(quantity, winners in self.prizes) {
+            dump(initialBalance*quantity);
+            let amountToAward: Int = initialBalance*quantity/100;
+            dump(amountToAward);
             repeat(winners) {
                 let winnerNum: Int = winnerNums.loadUint(16);
-                dump(winnerNum);
-                dump("here");
                 let winner: Address? = self.currentPlayers.get(winnerNum);
                 if (winner != null) {
                     send(SendParameters{
                         to: winner!!,
-                        value: quantity,
-                        mode: SendBounceIfActionFail
+                        value: amountToAward,
                     });
                 }
             }
         }
-        //Collect dev fee
-        if (self.devFee > 0) {
-            send(SendParameters{
-                to: self.owner,
-                value: self.devFee,
-                mode: SendRemainingValue | SendBounceIfActionFail
-            });
-        }
+        let devAmount: Int = initialBalance*self.devFee/100;
+        dump(devAmount);
+        send(SendParameters{
+            to: self.owner,
+            value: devAmount,
+            mode: SendRemainingValue
+        });
+        
 
         // Reset the lottery
         self.currentPlayers = emptyMap();
@@ -146,7 +150,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
     //             let winner: Address? = self.currentPlayers.get(winnerNum);
     //             if (winner != null) {
     //                 // dump(myBalance());
-    //                 // dump(myBalance()-context().value);
+    //                 // dumpinitialBalance;
     //                 // let amountToAward: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value-devFeeAmount)*key/100;
     //                 // dump(amountToAward);
     //                 // Send the prize to the winner
@@ -185,8 +189,8 @@ contract LotteryGame with Deployable, OwnableTransferable {
         });
     }
 
-    get fun balance(): String {
-        return myBalance().toCoinsString();
+    get fun balance(): Int {
+        return myBalance();
     }
 
     get fun currentNumOfPlayers(): Int {
@@ -250,7 +254,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
         };
     }
 
-    get fun prizes(): map<Int as uint64, Int as uint16> {
+    get fun prizes(): map<Int as uint8, Int as uint16> {
         return self.prizes;
     }
 
