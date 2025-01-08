@@ -7,7 +7,7 @@ message CreateLottery {
     numPrice: Int as coins;
     lotteryDuration: Int? as uint32;
     devFee: Int as coins;
-    prizes: map<Int as uint64, Int as uint16>;
+    prizes: map<Int as uint8, Int as uint16>;
 }
 
 contract LotteryMaster with Deployable, OwnableTransferable {
@@ -55,7 +55,7 @@ contract LotteryMaster with Deployable, OwnableTransferable {
         return myBalance().toCoinsString();
     }
 
-    get fun lotteryGameAddress(maxPlayers: Int, numPrice: Int, lotteryDuration: Int?, devFee: Int, prizes: map<Int as uint64, Int as uint16>): Address {
+    get fun lotteryGameAddress(maxPlayers: Int, numPrice: Int, lotteryDuration: Int?, devFee: Int, prizes: map<Int as uint8, Int as uint16>): Address {
         return contractAddress(initOf LotteryGame(maxPlayers, numPrice, self.owner, lotteryDuration, devFee, prizes));
     }
 }

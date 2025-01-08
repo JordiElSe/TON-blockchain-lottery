@@ -15,10 +15,10 @@ export async function run(provider: NetworkProvider) {
         null,
     );
 
-    let winnersMap = Dictionary.empty(Dictionary.Keys.BigInt(64), Dictionary.Values.Uint(16));
-    winnersMap.set(toNano('10'), 1); // one winner gets 10 TONS
-    winnersMap.set(toNano('5'), 2); // two winners get 5 TONS each
-    winnersMap.set(toNano('2.5'), 3); // three winners get 2.5 TONS each
+    let prizes = Dictionary.empty(Dictionary.Keys.Uint(16), Dictionary.Values.Uint(16));
+    prizes.set(30, 1); // one winner gets 10 TONS
+    prizes.set(15, 2); // two winners get 5 TONS each
+    prizes.set(10, 3); // three winners get 2.5 TONS each
 
     await lotteryMaster.send(
         provider.sender(),
@@ -29,9 +29,9 @@ export async function run(provider: NetworkProvider) {
             $$type: 'CreateLottery',
             maxPlayers: 100n,
             numPrice: toNano('0.005'),
-            lotteryDuration: 10000000n,
-            devFee: 0n,
-            winnersMap: winnersMap,
+            lotteryDuration: 1n,
+            devFee: 10n,
+            prizes: prizes,
         },
     );
 }

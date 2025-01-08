@@ -5,10 +5,6 @@ message BuyNumber {
     num: Int as uint16;
 }
 
-message TransferRemainingPotBalance {
-    to: Address;
-}
-
 message AwardPrizes {
     winners: Cell;
     maxPlayers: Int? as uint16;
@@ -29,6 +25,7 @@ struct LotteryData {
     lotteryDuration: Int as uint32;
     devFee: Int as uint8;
     prizes: map<Int as uint8, Int as uint16>;
+    prizePool: Int as coins;
 }
 
 struct PlayersData {
@@ -71,34 +68,31 @@ contract LotteryGame with Deployable, OwnableTransferable {
         // Add the player to the list of players
         self.currentPlayers.set(msg.num, sender());
         self.currentNumOfPlayers += 1;
-        // let emitMsg: StringBuilder = beginString();
-        // emitMsg.append("You bought the number ");
-        // emitMsg.append(msg.num.toString());
-        // emit(emitMsg.toCell());
     }
 
     receive(msg: AwardPrizes) {
         dump(myBalance());
-        dump(context().value);
+        // dump(context().value);
         self.requireOwner();
-        // require(sender() == self.owner, "Only the owner can call this function");
         require(now() - self.startTime >= self.lotteryDuration, "Lottery is not over");
         let winnerNums: Slice = msg.winners.beginParse();
         let initialBalance: Int = myBalance()-context().value;
-        dump(initialBalance);
+        // dump(initialBalance);
         foreach(quantity, winners in self.prizes) {
-            dump(initialBalance*quantity);
+            // dump(initialBalance*quantity);
             let amountToAward: Int = initialBalance*quantity/100;
-            dump(amountToAward);
+            // dump(amountToAward);
             repeat(winners) {
                 let winnerNum: Int = winnerNums.loadUint(16);
-                let winner: Address? = self.currentPlayers.get(winnerNum);
-                if (winner != null) {
+                if (self.currentPlayers.exists(winnerNum)) {
+                    let winner: Address? = self.currentPlayers.get(winnerNum);
+                    // if (winner != null) {
                     send(SendParameters{
                         to: winner!!,
                         value: amountToAward,
                     });
                 }
+                
             }
         }
         let devAmount: Int = initialBalance*self.devFee/100;
@@ -179,16 +173,6 @@ contract LotteryGame with Deployable, OwnableTransferable {
     //     }
     // }
 
-    receive(msg: TransferRemainingPotBalance) {
-        self.requireOwner();
-        // require(sender() == self.owner, "Only the owner can call this function");
-        send(SendParameters{
-            to: msg.to,
-            value: myBalance(),
-            mode: SendBounceIfActionFail | SendDestroyIfZero
-        });
-    }
-
     get fun balance(): Int {
         return myBalance();
     }
@@ -243,7 +227,8 @@ contract LotteryGame with Deployable, OwnableTransferable {
             numPrice: self.numPrice,
             lotteryDuration: self.lotteryDuration,
             devFee: self.devFee,
-            prizes: self.prizes
+            prizes: self.prizes,
+            prizePool: myBalance(),
         };
     }
 

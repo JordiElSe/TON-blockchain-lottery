@@ -24,10 +24,10 @@ describe('LotteryGame', () => {
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
     let lotteryGame: SandboxContract<LotteryGame>;
-    // const prizeAmounts = [10, 15, 30];
-    // const winnerCounts = [3, 2, 1];
-    const prizeAmounts = [90];
-    const winnerCounts = [1];
+    const prizeAmounts = [10, 15, 30];
+    const winnerCounts = [3, 2, 1];
+    // const prizeAmounts = [90];
+    // const winnerCounts = [1];
 
     let prizes = Dictionary.empty(Dictionary.Keys.Uint(8), Dictionary.Values.Uint(16));
     prizeAmounts.forEach((amount, i) => {
@@ -140,12 +140,115 @@ describe('LotteryGame', () => {
     //     console.log('balance after awarding prizes: ', await lotteryGame.getBalance());
     // });
 
-    it('should award prizes properly', async () => {
+    // it('should award prizes properly when lottery is full', async () => {
+    //     // Run three times the lottery to test multiple draws
+    //     for (let j = 0; j < 3; j++) {
+    //         // Buy all lottery numbers
+    //         const numPrice = await lotteryGame.getNumPrice();
+    //         for (let i = 0; i < 100; i++) {
+    //             const player = await blockchain.treasury('t6-player' + i);
+    //             await lotteryGame.send(
+    //                 player.getSender(),
+    //                 {
+    //                     value: numPrice,
+    //                 },
+    //                 {
+    //                     $$type: 'BuyNumber',
+    //                     num: BigInt(i),
+    //                 },
+    //             );
+    //         }
+
+    //         let totalPlayers = await lotteryGame.getCurrentNumOfPlayers();
+    //         expect(totalPlayers).toBe(100n);
+
+    //         // Simulate passage of time
+    //         blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
+
+    //         const contractBalance = await lotteryGame.getBalance();
+    //         console.log('balance after numbers are bought: ', contractBalance);
+    //         const devFee = await lotteryGame.getDevFee();
+    //         const storageFee = 1675862n; // For 7 days
+    //         const initialPot = contractBalance - storageFee;
+    //         // console.log('initialPot', initialPot);
+    //         const fwdActionFees = toNano('0.0004'); // fwd_fee and action_fee deducted from value in the prize awarding transaction
+
+    //         // Generate winning numbers and send them to the contract
+    //         const totalNumberOfWinners = prizes.values().reduce((a, b) => a + b, 0);
+    //         const winningNums = generateWinningNumbers(
+    //             Number(await lotteryGame.getCurrentNumOfPlayers()),
+    //             totalNumberOfWinners,
+    //         );
+    //         console.log('winningNums', winningNums);
+    //         const winnersAddresses = winningNums.map(
+    //             async (num) => (await blockchain.treasury('t6-player' + num)).address,
+    //         );
+    //         const winnersCell = winningNums.reduce((cell, num) => cell.storeUint(num, 16), beginCell()).endCell();
+    //         console.log(winnersCell);
+    //         const result = await lotteryGame.send(
+    //             deployer.getSender(),
+    //             {
+    //                 value: toNano('0.05'),
+    //             },
+    //             {
+    //                 $$type: 'AwardPrizes',
+    //                 winners: winnersCell,
+    //                 numPrice: null,
+    //                 maxPlayers: null,
+    //                 prizes: prizes,
+    //                 lotteryDuration: null,
+    //                 devFee: null,
+    //             },
+    //         );
+    //         printTransactionFees(result.transactions);
+    //         expect(result.transactions).toHaveTransaction({
+    //             from: deployer.address,
+    //             to: lotteryGame.address,
+    //             success: true,
+    //         });
+
+    //         // Should have deducted dev fees
+    //         expect(result.transactions).toHaveTransaction({
+    //             from: lotteryGame.address,
+    //             to: deployer.address,
+    //             value: (amount) => {
+    //                 return amount != undefined && amount >= (initialPot * devFee) / 100n - fwdActionFees; // At least the dev fee amount plus any remaining value from the tx
+    //             },
+    //             success: true,
+    //         });
+
+    //         let winningNumsIndex = 0;
+
+    //         for (let i = 0; i < prizeAmounts.length; i++) {
+    //             const prizeAmount = prizeAmounts[i];
+    //             const numWinners = winnerCounts[i];
+
+    //             for (let j = 0; j < numWinners; j++) {
+    //                 const playerAddress = await winnersAddresses[winningNumsIndex];
+
+    //                 expect(result.transactions).toHaveTransaction({
+    //                     from: lotteryGame.address,
+    //                     to: playerAddress!!,
+    //                     value: (initialPot * BigInt(prizeAmount)) / 100n - fwdActionFees,
+    //                     success: true,
+    //                 });
+
+    //                 winningNumsIndex++;
+    //             }
+    //         }
+
+    //         //Expect the contract's remaining balance to be 1 nano
+    //         // console.log('contractBalance', await lotteryGame.getBalance());
+    //         expect(Number(await lotteryGame.getBalance())).toBeLessThanOrEqual(BigInt(totalNumberOfWinners));
+    //     }
+    // });
+
+    it('should only award prize if winning number has an owner', async () => {
         // Run three times the lottery to test multiple draws
         for (let j = 0; j < 3; j++) {
-            // Buy all lottery numbers
+            // Buy only half of the lottery numbers
             const numPrice = await lotteryGame.getNumPrice();
-            for (let i = 0; i < 100; i++) {
+            for (let i = 0; i < 50; i++) {
                 const player = await blockchain.treasury('t6-player' + i);
                 await lotteryGame.send(
                     player.getSender(),
@@ -160,27 +263,24 @@ describe('LotteryGame', () => {
             }
 
             let totalPlayers = await lotteryGame.getCurrentNumOfPlayers();
-            expect(totalPlayers).toBe(100n);
+            expect(totalPlayers).toBe(50n);
 
             // Simulate passage of time
             blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
 
             const contractBalance = await lotteryGame.getBalance();
-            // console.log('balance after numbers are bought: ', contractBalance);
+            console.log('balance after numbers are bought: ', contractBalance);
             const devFee = await lotteryGame.getDevFee();
-            const storageFee = 1656362n; // For 7 days
+            const storageFee = 1037378n; // For 7 days
             const initialPot = contractBalance - storageFee;
-            // console.log('initialPot', initialPot);
-            const fwdActionFees = toNano('0.0004'); // fwd_fee and action_fee deducted from value in the prize awarding transaction
+            const fwdActionFees = toNano('0.0004');
 
-            // Generate winning numbers and send them to the contract
             const totalNumberOfWinners = prizes.values().reduce((a, b) => a + b, 0);
-            const winningNums = generateWinningNumbers(
-                Number(await lotteryGame.getCurrentNumOfPlayers()),
-                totalNumberOfWinners,
-            );
-            const winnersAddresses = winningNums.map(
-                async (num) => (await blockchain.treasury('t6-player' + num)).address,
+
+            const winningNums = [1, 2, 3, 53, 54, 57];
+
+            const winnersAddresses = winningNums.map(async (num) =>
+                num >= 50 ? null : (await blockchain.treasury('t6-player' + num)).address,
             );
             const winnersCell = winningNums.reduce((cell, num) => cell.storeUint(num, 16), beginCell()).endCell();
 
@@ -199,7 +299,7 @@ describe('LotteryGame', () => {
                     devFee: null,
                 },
             );
-            printTransactionFees(result.transactions);
+            // printTransactionFees(result.transactions);
             expect(result.transactions).toHaveTransaction({
                 from: deployer.address,
                 to: lotteryGame.address,
@@ -217,30 +317,202 @@ describe('LotteryGame', () => {
             });
 
             let winningNumsIndex = 0;
-
+            let expectedRemainingBalance = 0n;
             for (let i = 0; i < prizeAmounts.length; i++) {
                 const prizeAmount = prizeAmounts[i];
                 const numWinners = winnerCounts[i];
 
                 for (let j = 0; j < numWinners; j++) {
-                    const playerAddress = await winnersAddresses[winningNumsIndex];
+                    if (winningNums[winningNumsIndex] < 50) {
+                        // If number was bought
+                        const playerAddress = await winnersAddresses[winningNumsIndex];
 
-                    expect(result.transactions).toHaveTransaction({
-                        from: lotteryGame.address,
-                        to: playerAddress!!,
-                        value: (initialPot * BigInt(prizeAmount)) / 100n - fwdActionFees,
-                        success: true,
-                    });
-
+                        expect(result.transactions).toHaveTransaction({
+                            from: lotteryGame.address,
+                            to: playerAddress!!,
+                            value: (initialPot * BigInt(prizeAmount)) / 100n - fwdActionFees,
+                            success: true,
+                        });
+                    } else {
+                        expectedRemainingBalance += (initialPot * BigInt(prizeAmount)) / 100n;
+                    }
                     winningNumsIndex++;
                 }
             }
 
-            //Expect the contract's remaining balance to be 1 nano
-            console.log('contractBalance', await lotteryGame.getBalance());
-            expect(Number(await lotteryGame.getBalance())).toBeLessThanOrEqual(1n);
+            // Check that the not awarded prizes are kept in the contract balance
+            const finalBalance = await lotteryGame.getBalance();
+            expect(finalBalance).toBeLessThanOrEqual(expectedRemainingBalance + 10n);
         }
     });
+
+    // it('should use the accumulated prize pool to award winners in the following lottery', async () => {
+    //     // Buy only half of the lottery numbers
+    //     const numPrice = await lotteryGame.getNumPrice();
+    //     for (let i = 0; i < 50; i++) {
+    //         const player = await blockchain.treasury('t6-player' + i);
+    //         await lotteryGame.send(
+    //             player.getSender(),
+    //             {
+    //                 value: numPrice,
+    //             },
+    //             {
+    //                 $$type: 'BuyNumber',
+    //                 num: BigInt(i),
+    //             },
+    //         );
+    //     }
+
+    //     let totalPlayers = await lotteryGame.getCurrentNumOfPlayers();
+    //     expect(totalPlayers).toBe(50n);
+
+    //     // Simulate passage of time
+    //     blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
+
+    //     const contractBalance = await lotteryGame.getBalance();
+    //     console.log('balance after numbers are bought: ', contractBalance);
+    //     const devFee = await lotteryGame.getDevFee();
+    //     // Only half the winning numbers were bought, so the other half should remain in the contract
+    //     const winningNums = [1, 2, 3, 54, 55, 56];
+
+    //     const winnersAddresses = winningNums.map(async (num) =>
+    //         num >= 50 ? null : (await blockchain.treasury('t6-player' + num)).address,
+    //     );
+
+    //     const winnersCell = winningNums.reduce((cell, num) => cell.storeUint(num, 16), beginCell()).endCell();
+    //     const storageFee = 1089390n; // For 7 days
+    //     const initialPot = contractBalance - storageFee;
+
+    //     const result = await lotteryGame.send(
+    //         deployer.getSender(),
+    //         {
+    //             value: toNano('5'),
+    //         },
+    //         {
+    //             $$type: 'AwardPrizes',
+    //             winners: winnersCell,
+    //             numPrice: null,
+    //             maxPlayers: null,
+    //             prizes: prizes,
+    //             lotteryDuration: null,
+    //             devFee: null,
+    //         },
+    //     );
+
+    //     printTransactionFees(result.transactions);
+    //     let winningNumsIndex = 0;
+    //     let expectedRemainingBalance = 0n;
+    //     for (let i = 0; i < prizeAmounts.length; i++) {
+    //         const prizeAmount = prizeAmounts[i];
+    //         const numWinners = winnerCounts[i];
+
+    //         for (let j = 0; j < numWinners; j++) {
+    //             if (winningNums[winningNumsIndex] >= 50) {
+    //                 expectedRemainingBalance += (initialPot * BigInt(prizeAmount)) / 100n;
+    //             }
+
+    //             winningNumsIndex++;
+    //         }
+    //     }
+
+    //     // Check that the not awarded prizes are kept in the contract balance
+    //     const finalBalance = await lotteryGame.getBalance();
+    //     expect(finalBalance).toBeLessThanOrEqual(expectedRemainingBalance + 10n);
+
+    //     // Buy all lottery numbers of the next lottery
+    //     for (let i = 0; i < 100; i++) {
+    //         const player = await blockchain.treasury('t6-player' + i);
+    //         await lotteryGame.send(
+    //             player.getSender(),
+    //             {
+    //                 value: numPrice,
+    //             },
+    //             {
+    //                 $$type: 'BuyNumber',
+    //                 num: BigInt(i),
+    //             },
+    //         );
+    //     }
+
+    //     totalPlayers = await lotteryGame.getCurrentNumOfPlayers();
+    //     expect(totalPlayers).toBe(100n);
+
+    //     // Simulate passage of time
+    //     blockchain.now!! += 7 * 24 * 60 * 60; // 7 days later
+
+    //     const contractBalance2 = await lotteryGame.getBalance();
+    //     console.log('balance after numbers are bought: ', contractBalance2);
+    //     const devFee2 = await lotteryGame.getDevFee();
+    //     const storageFee2 = 1089390n; // For 7 days
+    //     const initialPot2 = contractBalance2 - storageFee2; // Initial pot includes the remaining balance from the previous lottery
+    //     const fwdActionFees = toNano('0.0004');
+
+    //     const totalNumberOfWinners = prizes.values().reduce((a, b) => a + b, 0);
+
+    //     const winningNums2 = generateWinningNumbers(Number(totalPlayers), totalNumberOfWinners);
+
+    //     const winnersAddresses2 = winningNums2.map(
+    //         async (num) => (await blockchain.treasury('t6-player' + num)).address,
+    //     );
+
+    //     const winnersCell2 = winningNums2.reduce((cell, num) => cell.storeUint(num, 16), beginCell()).endCell();
+
+    //     const result2 = await lotteryGame.send(
+    //         deployer.getSender(),
+    //         {
+    //             value: toNano('5'),
+    //         },
+    //         {
+    //             $$type: 'AwardPrizes',
+    //             winners: winnersCell2,
+    //             numPrice: null,
+    //             maxPlayers: null,
+    //             prizes: prizes,
+    //             lotteryDuration: null,
+    //             devFee: null,
+    //         },
+    //     );
+    //     printTransactionFees(result.transactions);
+    //     expect(result.transactions).toHaveTransaction({
+    //         from: deployer.address,
+    //         to: lotteryGame.address,
+    //         success: true,
+    //     });
+
+    //     // Should have deducted dev fees
+    //     expect(result.transactions).toHaveTransaction({
+    //         from: lotteryGame.address,
+    //         to: deployer.address,
+    //         value: (amount) => {
+    //             return amount != undefined && amount >= (initialPot * devFee) / 100n - fwdActionFees; // At least the dev fee amount plus any remaining value from the tx
+    //         },
+    //         success: true,
+    //     });
+
+    //     let winningNumsIndex2 = 0;
+
+    //     for (let i = 0; i < prizeAmounts.length; i++) {
+    //         const prizeAmount = prizeAmounts[i];
+    //         const numWinners = winnerCounts[i];
+
+    //         for (let j = 0; j < numWinners; j++) {
+    //             const playerAddress = await winnersAddresses2[winningNumsIndex2];
+
+    //             expect(result.transactions).toHaveTransaction({
+    //                 from: lotteryGame.address,
+    //                 to: playerAddress!!,
+    //                 value: (initialPot * BigInt(prizeAmount)) / 100n - fwdActionFees,
+    //                 success: true,
+    //             });
+
+    //             winningNumsIndex2++;
+    //         }
+    //     }
+
+    //     //Expect the contract's remaining balance to be 1 nano
+    //     // console.log('contractBalance', await lotteryGame.getBalance());
+    //     expect(Number(await lotteryGame.getBalance())).toBeLessThanOrEqual(BigInt(totalNumberOfWinners));
+    // });
 
     /* it('should not buy number if the lottery is full', async () => {
         for (let i = 0; i < 100; i++) {
