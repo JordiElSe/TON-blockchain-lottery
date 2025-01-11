@@ -40,7 +40,7 @@ describe('LotteryGame', () => {
         deployer = await blockchain.treasury('deployer');
 
         lotteryGame = blockchain.openContract(
-            await LotteryGame.fromInit(100n, toNano('1'), deployer.address, null, 10n, prizes),
+            await LotteryGame.fromInit(100n, toNano('1'), deployer.address, 10n, prizes),
         );
 
         const deployResult = await lotteryGame.send(
@@ -294,7 +294,6 @@ describe('LotteryGame', () => {
                     numPrice: null,
                     maxPlayers: null,
                     prizes: prizes,
-                    lotteryDuration: null,
                     devFee: null,
                 },
             );
@@ -397,7 +396,6 @@ describe('LotteryGame', () => {
                     numPrice: null,
                     maxPlayers: null,
                     prizes: prizes,
-                    lotteryDuration: null,
                     devFee: null,
                 },
             );
@@ -494,7 +492,6 @@ describe('LotteryGame', () => {
                     numPrice: null,
                     maxPlayers: null,
                     prizes: prizes,
-                    lotteryDuration: null,
                     devFee: null,
                 },
             );

@@ -9,11 +9,14 @@ message AwardPrizes {
     winners: Cell;
     maxPlayers: Int? as uint16;
     numPrice: Int? as coins;
-    lotteryDuration: Int? as uint32;
     devFee: Int? as uint8;
     prizes: map<Int as uint8, Int as uint16>;
     // winners: map<Int as uint16, Int as uint64>; // winning num -> quantity
     // seed: Int as uint32;
+}
+
+message CancelLottery {
+    num: Int as uint16;
 }
 
 struct LotteryData {
@@ -22,7 +25,6 @@ struct LotteryData {
     currentPlayers: map<Int as uint16, Address>;
     maxPlayers: Int as uint16;
     numPrice: Int as coins;
-    lotteryDuration: Int as uint32;
     devFee: Int as uint8;
     prizes: map<Int as uint8, Int as uint16>;
     prizePool: Int as coins;
@@ -40,18 +42,16 @@ contract LotteryGame with Deployable, OwnableTransferable {
     currentNumOfPlayers: Int as uint16;
     maxPlayers: Int as uint16;
     numPrice: Int as coins;
-    lotteryDuration: Int as uint32; // in seconds
     startTime: Int as uint32;
     devFee: Int as uint8;
     prizes: map<Int as uint8, Int as uint16>; // quantity -> num of winners
 
-    init(maxPlayers: Int, numPrice: Int, owner: Address, lotteryDuration: Int?, devFee: Int, prizes: map<Int as uint8, Int as uint16>) {
+    init(maxPlayers: Int, numPrice: Int, owner: Address, devFee: Int, prizes: map<Int as uint8, Int as uint16>) {
         self.owner = owner;
         self.startTime = now();
         self.currentNumOfPlayers = 0;
         self.maxPlayers = maxPlayers;
         self.numPrice = numPrice;
-        self.lotteryDuration = lotteryDuration != null ? lotteryDuration!! : 7 * 24 * 60 * 60; // 1 week by default
         self.devFee = devFee;
         self.prizes = prizes;
     }
@@ -74,7 +74,7 @@ contract LotteryGame with Deployable, OwnableTransferable {
         dump(myBalance());
         // dump(context().value);
         self.requireOwner();
-        require(now() - self.startTime >= self.lotteryDuration, "Lottery is not over");
+        require(self.currentNumOfPlayers == self.maxPlayers, "Lottery is not full");
         let winnerNums: Slice = msg.winners.beginParse();
         let initialBalance: Int = myBalance()-context().value;
         // dump(initialBalance);
@@ -110,7 +110,6 @@ contract LotteryGame with Deployable, OwnableTransferable {
         self.startTime = now();
         self.maxPlayers = msg.maxPlayers != null ? msg.maxPlayers!! : self.maxPlayers;
         self.numPrice = msg.numPrice != null ? msg.numPrice!! : self.numPrice;
-        self.lotteryDuration = msg.lotteryDuration != null ? msg.lotteryDuration!! : self.lotteryDuration;
         self.devFee = msg.devFee != null ? msg.devFee!! : self.devFee;
         self.prizes = msg.prizes;
         // nativeRandomize(msg.seed);
@@ -123,55 +122,18 @@ contract LotteryGame with Deployable, OwnableTransferable {
         
     }
 
-    // receive("PickWinners") {
-    //     require(now() - self.startTime >= self.lotteryDuration, "Lottery is not over");
-    //     send(SendParameters{
-    //         to: myAddress(),
-    //         value: 0,
-    //         mode: SendRemainingValue | SendBounceIfActionFail,
-    //         body: "InternalPickWinners".asComment()
-    //     });
-    // }
-
-    // receive("InternalPickWinners") {
-    //     require(sender() == myAddress(), "Only the contract itself can call this function");
-    //     // let totalSum: Int = 0;
-    //     foreach (quantity, winners in self.prizes) {
-    //         repeat(winners) {
-    //             // totalSum += quantity;
-    //             nativeRandomizeLt();
-    //             let winnerNum: Int = random(0, self.maxPlayers);
-    //             let winner: Address? = self.currentPlayers.get(winnerNum);
-    //             if (winner != null) {
-    //                 // dump(myBalance());
-    //                 // dumpinitialBalance;
-    //                 // let amountToAward: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value-devFeeAmount)*key/100;
-    //                 // dump(amountToAward);
-    //                 // Send the prize to the winner
-    //                 send(SendParameters{
-    //                     to: winner!!,
-    //                     value: quantity,
-    //                     mode: SendBounceIfActionFail
-    //                 });
-    //                 emit(beginCell().storeUint(winnerNum, 16).storeCoins(quantity).endCell());
-    //                 // Remove the winner from the list of players
-    //                 // and fill its place with the last player
-    //                 self.currentPlayers.set(winnerNum, self.currentPlayers.get(self.maxPlayers-1));
-    //                 self.currentPlayers.del(self.maxPlayers-1);
-    //                 self.maxPlayers -= 1;
-    //             }
-    //         }
-    //     }
-    //     // Substract the dev fee
-    //     // let devFeeAmount: Int = (myBalance()-self.MIN_TONS_FOR_STORAGE-context().value)*self.devFee/100;
-    //     if (self.devFee > 0) {
-    //         send(SendParameters{
-    //             to: self.owner,
-    //             value: self.devFee,
-    //             mode: SendRemainingValue | SendBounceIfActionFail
-    //         });
-    //     }
-    // }
+    receive(msg: CancelLottery) {
+        require(self.startTime + 60 * 24 * 60 * 60 < now(), "Lottery is not old enough to be cancelled");
+        require(self.currentNumOfPlayers < self.maxPlayers, "Lottery is full");
+        require(self.currentPlayers.get(msg.num) == sender(), "You are not a participant");
+        send(SendParameters{
+            to: sender(),
+            value: (myBalance() - context().value)/self.currentNumOfPlayers,
+            mode: SendRemainingValue
+        });
+        self.currentPlayers.del(msg.num);
+        self.currentNumOfPlayers -= 1;
+    }
 
     get fun balance(): Int {
         return myBalance();
@@ -206,14 +168,6 @@ contract LotteryGame with Deployable, OwnableTransferable {
         return null;
     }
 
-    get fun lotteryDuration(): Int {
-        return self.lotteryDuration;
-    }
-
-    // get fun minTonsForStorage(): String {
-    //     return self.MIN_TONS_FOR_STORAGE.toCoinsString();
-    // }
-
     get fun devFee(): Int {
         return self.devFee;
     }
@@ -225,7 +179,6 @@ contract LotteryGame with Deployable, OwnableTransferable {
             currentPlayers: self.currentPlayers,
             maxPlayers: self.maxPlayers,
             numPrice: self.numPrice,
-            lotteryDuration: self.lotteryDuration,
             devFee: self.devFee,
             prizes: self.prizes,
             prizePool: myBalance(),
