@@ -15,7 +15,7 @@ message AwardPrizes {
     // seed: Int as uint32;
 }
 
-message CancelLottery {
+message CancelNumber {
     num: Int as uint16;
 }
 
@@ -112,18 +112,12 @@ contract LotteryGame with Deployable, OwnableTransferable {
         self.numPrice = msg.numPrice != null ? msg.numPrice!! : self.numPrice;
         self.devFee = msg.devFee != null ? msg.devFee!! : self.devFee;
         self.prizes = msg.prizes;
-        // nativeRandomize(msg.seed);
-        // let i = 0;
-        // while (i < 5) {
-        //     let randomNum: Int = nativeRandomInterval(self.maxPlayers);
-        //     dump(randomNum);
-        //     i += 1;
-        // }
         
     }
 
-    receive(msg: CancelLottery) {
-        require(self.startTime + 60 * 24 * 60 * 60 < now(), "Lottery is not old enough to be cancelled");
+    receive(msg: CancelNumber) {
+        dump(myBalance());
+        require(self.startTime + 60 * 24 * 60 * 60 <= now(), "Lottery is not old enough to be cancelled");
         require(self.currentNumOfPlayers < self.maxPlayers, "Lottery is full");
         require(self.currentPlayers.get(msg.num) == sender(), "You are not a participant");
         send(SendParameters{
