@@ -358,7 +358,7 @@ describe('LotteryGame', () => {
         expect((await lotteryGame.getBalance()).toString()).toBe((numPrice * 100n - totalFees).toString());
     });
 
-    it('should return money if players cancels after 2 months have passed', async () => {
+    it('should return money if player cancels after 2 months have passed', async () => {
         const numPrice = await lotteryGame.getNumPrice();
         const totalPlayers = 37;
         const playerToCancel = (await blockchain.treasury('t6-player' + 1)).getSender();
@@ -412,5 +412,62 @@ describe('LotteryGame', () => {
         expect((await lotteryGame.getCurrentNumOfPlayers()).toString()).toBe('36');
         console.log(await lotteryGame.getPlayerAddress(1n));
         expect(await lotteryGame.getPlayerAddress(1n)).toBeNull();
+    });
+
+    it('should be at 0 balance if all players cancel after 2 months have passed', async () => {
+        const numPrice = await lotteryGame.getNumPrice();
+
+        const totalPlayers = 5;
+        const storageFee = 7648093n; // 2 months of storage fee
+        for (let i = 0; i < totalPlayers; i++) {
+            const player = await blockchain.treasury('t6-player' + i);
+            await lotteryGame.send(
+                player.getSender(),
+                {
+                    value: numPrice,
+                },
+                {
+                    $$type: 'BuyNumber',
+                    num: BigInt(i),
+                },
+            );
+        }
+        console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
+        expect(await lotteryGame.getCurrentNumOfPlayers()).toBe(BigInt(totalPlayers));
+        blockchain.now!! += 60 * 24 * 60 * 60; // 2 months
+        const balanceBefore = await lotteryGame.getBalance();
+        const refundAmount = (balanceBefore - storageFee) / BigInt(totalPlayers);
+
+        for (let i = 0; i < totalPlayers; i++) {
+            const player = await blockchain.treasury('t6-player' + i);
+            const result = await lotteryGame.send(
+                player.getSender(),
+                {
+                    value: toNano('0.05'),
+                },
+                {
+                    $$type: 'CancelNumber',
+                    num: BigInt(i),
+                },
+            );
+            // printTransactionFees(result.transactions);
+
+            expect(result.transactions).toHaveTransaction({
+                from: player.address,
+                to: lotteryGame.address,
+                success: true,
+            });
+            expect(result.transactions).toHaveTransaction({
+                from: lotteryGame.address,
+                to: player.address,
+                success: true,
+                value: (amount) => {
+                    return amount != undefined && amount >= refundAmount && amount <= refundAmount + toNano('0.05'); // At least the amount minus the fee
+                },
+            });
+        }
+        const balanceAfter = await lotteryGame.getBalance();
+        expect(balanceAfter.toString()).toBe('0');
+        expect((await lotteryGame.getCurrentNumOfPlayers()).toString()).toBe('0');
     });
 });
