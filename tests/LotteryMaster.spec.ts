@@ -88,10 +88,11 @@ describe('LotteryMaster', () => {
         //     },
         //     null,
         // );
+        console.log('contract balance', await lotteryMaster.getBalance());
         const results = await lotteryMaster.send(
             deployer.getSender(),
             {
-                value: toNano('0.2'),
+                value: toNano('0.02'), // Minus the fees is not enough to deploy a new lottery
             },
             {
                 $$type: 'CreateLottery',
@@ -111,58 +112,42 @@ describe('LotteryMaster', () => {
         });
     });
 
-    // it('should create a lottery game with the specified parameters', async () => {
-    //     await lotteryMaster.send(
-    //         deployer.getSender(),
-    //         {
-    //             value: toNano('0.022'), //A bit more than 0.02 to pay for the fees
-    //         },
-    //         null,
-    //     );
-    //     // console.log('contract balance', await lotteryMaster.getBalance());
-    //     console.log('prizes', prizes);
-    //     const result = await lotteryMaster.send(
-    //         deployer.getSender(),
-    //         {
-    //             value: toNano('1'),
-    //         },
-    //         {
-    //             $$type: 'CreateLottery',
-    //             maxPlayers: 100n,
-    //             numPrice: toNano('0.01'),
-    //             devFee: 10n,
-    //             prizes: prizes,
-    //         },
-    //     );
+    it('should create a lottery game with the specified parameters', async () => {
+        const result = await lotteryMaster.send(
+            deployer.getSender(),
+            {
+                value: toNano('0.03'),
+            },
+            {
+                $$type: 'CreateLottery',
+                maxPlayers: 100n,
+                numPrice: toNano('0.01'),
+                devFee: 10n,
+                prizes: prizes,
+            },
+        );
 
-    //     printTransactionFees(result.transactions);
+        const lotteryGameAddr = await lotteryMaster.getLotteryGameAddress(100n, toNano('0.01'), 10n, prizes);
 
-    //     expect(result.transactions).toHaveTransaction({
-    //         from: deployer.address,
-    //         to: lotteryMaster.address,
-    //         success: true,
-    //         deploy: true,
-    //     });
+        expect(result.transactions).toHaveTransaction({
+            from: lotteryMaster.address,
+            to: lotteryGameAddr,
+            success: true,
+            deploy: true,
+        });
 
-    //     // expect(result.transactions).toHaveTransaction({
-    //     //     from: lotteryMaster.address,
-    //     //     to: deployer.address,
-    //     //     success: true,
-    //     // });
+        const lotteryGame = blockchain.openContract(LotteryGame.fromAddress(lotteryGameAddr));
 
-    //     const lotteryGameAddr = await lotteryMaster.getLotteryGameAddress(100n, toNano('0.01'), 10n, prizes);
-    //     const lotteryGame = blockchain.openContract(LotteryGame.fromAddress(lotteryGameAddr));
-
-    //     // console.log('lotteryGame parameters:');
-    //     const owner = await lotteryGame.getOwner();
-    //     expect(owner.toString()).toEqual(deployer.address.toString());
-    //     const maxPlayers = await lotteryGame.getMaxPlayers();
-    //     // console.log('maxPlayers', maxPlayers);
-    //     expect(maxPlayers).toEqual('100');
-    //     const numPrice = await lotteryGame.getNumPrice();
-    //     // console.log(`numPrice: ${numPrice} ton`);
-    //     expect(numPrice).toEqual('0.01');
-    //     const prizesInSc = await lotteryGame.getPrizes();
-    //     expect(prizesInSc).toBe(prizes);
-    // });
+        // console.log('lotteryGame parameters:');
+        const owner = await lotteryGame.getOwner();
+        expect(owner.toString()).toEqual(deployer.address.toString());
+        // const maxPlayers = await lotteryGame.getMaxPlayers();
+        // // console.log('maxPlayers', maxPlayers);
+        // expect(maxPlayers).toEqual('100');
+        // const numPrice = await lotteryGame.getNumPrice();
+        // // console.log(`numPrice: ${numPrice} ton`);
+        // expect(numPrice).toEqual('0.01');
+        // const prizesInSc = await lotteryGame.getPrizes();
+        // expect(prizesInSc).toBe(prizes);
+    });
 });

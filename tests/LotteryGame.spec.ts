@@ -359,7 +359,7 @@ describe('LotteryGame', () => {
         const numPrice = await lotteryGame.getNumPrice();
         const totalPlayers = 37;
         const playerToCancel = (await blockchain.treasury('t6-player' + 1)).getSender();
-        const storageFee = 7334218n; // 2 months of storage fee
+        const storageFee = 7341812n; // 2 months of storage fee
         for (let i = 0; i < totalPlayers; i++) {
             const player = await blockchain.treasury('t6-player' + i);
             await lotteryGame.send(
@@ -413,7 +413,7 @@ describe('LotteryGame', () => {
 
     it('should not return money if 2 months have passed but lottery is full', async () => {
         const numPrice = await lotteryGame.getNumPrice();
-        const storageFee = 13667880n; // 2 months of storage fee
+        const storageFee = 13675474n; // 2 months of storage fee
         for (let i = 0; i < 100; i++) {
             const player = await blockchain.treasury('t6-player' + i);
             await lotteryGame.send(
@@ -458,7 +458,7 @@ describe('LotteryGame', () => {
     it('should not return money if player is not the owner of the canceled ticket', async () => {
         const numPrice = await lotteryGame.getNumPrice();
         const totalPlayers = 37;
-        const storageFee = 7334218n; // 2 months of storage fee
+        const storageFee = 7341812n; // 2 months of storage fee
         for (let i = 0; i < totalPlayers; i++) {
             const player = await blockchain.treasury('t6-player' + i);
             await lotteryGame.send(
@@ -502,7 +502,7 @@ describe('LotteryGame', () => {
     it('should not return money if player cancels before 2 months have passed', async () => {
         const numPrice = await lotteryGame.getNumPrice();
         const totalPlayers = 37;
-        const storageFee = 3667109n; // 1 months of storage fee
+        const storageFee = 3670906n; // 1 months of storage fee
         for (let i = 0; i < totalPlayers; i++) {
             const player = await blockchain.treasury('t6-player' + i);
             await lotteryGame.send(
@@ -548,7 +548,7 @@ describe('LotteryGame', () => {
         const numPrice = await lotteryGame.getNumPrice();
 
         const totalPlayers = 99;
-        const storageFee = 7334218n; // 2 months of storage fee
+        const storageFee = 7341812n; // 2 months of storage fee
         for (let i = 0; i < totalPlayers; i++) {
             const player = await blockchain.treasury('t6-player' + i);
             await lotteryGame.send(

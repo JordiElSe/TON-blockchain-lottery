@@ -53,6 +53,8 @@ contract LotteryGame with Deployable, OwnableTransferable {
         self.prizes = prizes;
     }
 
+    receive() {}
+
     receive(msg: BuyNumber) {
         require(msg.num >= 0 && msg.num < self.maxPlayers, "Invalid number");
         require(context().value >= self.numPrice, "Not enough funds to buy a ticket");
