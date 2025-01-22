@@ -9,7 +9,7 @@ export async function run(provider: NetworkProvider) {
     prizes.set(10, 3); // three winners get 2.5 TONS each
 
     const lotteryGame = provider.open(
-        await LotteryGame.fromInit(10514n, toNano('0.01'), provider.sender().address!!, 1n, 10n, prizes),
+        await LotteryGame.fromInit(8514n, toNano('0.01'), provider.sender().address!!, 10n, prizes),
     );
 
     await lotteryGame.send(
@@ -51,7 +51,6 @@ export async function run(provider: NetworkProvider) {
             winners: winnersCell,
             maxPlayers: 100n,
             numPrice: toNano('0.005'),
-            lotteryDuration: 1n,
             devFee: 10n,
             prizes: prizes,
         },

@@ -1,5 +1,5 @@
 import { Blockchain, printTransactionFees, SandboxContract, TreasuryContract } from '@ton/sandbox';
-import { Address, toNano, fromNano, Cell, Dictionary, Builder, beginCell, Transaction } from '@ton/core';
+import { toNano, Dictionary, beginCell } from '@ton/core';
 import { LotteryGame } from '../wrappers/LotteryGame';
 import '@ton/test-utils';
 // import { promises as fsPromises } from 'fs';
@@ -26,8 +26,6 @@ describe('LotteryGame', () => {
     let lotteryGame: SandboxContract<LotteryGame>;
     const prizeAmounts = [10, 15, 30];
     const winnerCounts = [3, 2, 1];
-    // const prizeAmounts = [90];
-    // const winnerCounts = [1];
 
     let prizes = Dictionary.empty(Dictionary.Keys.Uint(8), Dictionary.Values.Uint(16));
     prizeAmounts.forEach((amount, i) => {
@@ -102,7 +100,6 @@ describe('LotteryGame', () => {
                 devFee: null,
             },
         );
-        console.log('result', result.transactions[1]);
         expect(result.transactions).toHaveTransaction({
             from: deployer.address,
             to: lotteryGame.address,
@@ -134,7 +131,7 @@ describe('LotteryGame', () => {
             expect(totalPlayers).toBe(100n);
 
             const contractBalance = await lotteryGame.getBalance();
-            console.log('balance after numbers are bought: ', contractBalance);
+            // console.log('balance after numbers are bought: ', contractBalance);
             const devFee = await lotteryGame.getDevFee();
             const storageFee = 0n; // In a real scenario this would be the storage fee for the time passed
             const initialPot = contractBalance - storageFee;
@@ -165,7 +162,7 @@ describe('LotteryGame', () => {
                     devFee: null,
                 },
             );
-            printTransactionFees(result.transactions);
+            // printTransactionFees(result.transactions);
             expect(result.transactions).toHaveTransaction({
                 from: deployer.address,
                 to: lotteryGame.address,
@@ -331,7 +328,7 @@ describe('LotteryGame', () => {
     });
 
     it('once the lottery is full the prize pool should be the sum of numPrices minus fees', async () => {
-        console.log('initial balance: ', await lotteryGame.getBalance());
+        // console.log('initial balance: ', await lotteryGame.getBalance());
         const numPrice = await lotteryGame.getNumPrice();
         let totalFees = 0n;
 
@@ -354,7 +351,7 @@ describe('LotteryGame', () => {
             // printTransactionFees(result.transactions);
         }
         // await fsPromises.appendFile(buyNumberFeesPath, `Total fees: ${totalFees}\n`);
-        console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
+        // console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
         expect((await lotteryGame.getBalance()).toString()).toBe((numPrice * 100n - totalFees).toString());
     });
 
@@ -362,7 +359,7 @@ describe('LotteryGame', () => {
         const numPrice = await lotteryGame.getNumPrice();
         const totalPlayers = 37;
         const playerToCancel = (await blockchain.treasury('t6-player' + 1)).getSender();
-        const storageFee = 7648093n; // 2 months of storage fee
+        const storageFee = 7334218n; // 2 months of storage fee
         for (let i = 0; i < totalPlayers; i++) {
             const player = await blockchain.treasury('t6-player' + i);
             await lotteryGame.send(
@@ -376,7 +373,7 @@ describe('LotteryGame', () => {
                 },
             );
         }
-        console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
+        // console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
         expect(await lotteryGame.getCurrentNumOfPlayers()).toBe(37n);
         expect((await lotteryGame.getPlayerAddress(1n))?.toString()).toBe(playerToCancel.address.toString());
         blockchain.now!! += 60 * 24 * 60 * 60; // 2 months
@@ -410,13 +407,13 @@ describe('LotteryGame', () => {
         const balanceAfter = await lotteryGame.getBalance();
         expect(balanceAfter.toString()).toBe((balanceBefore - refundAmount - storageFee).toString());
         expect((await lotteryGame.getCurrentNumOfPlayers()).toString()).toBe('36');
-        console.log(await lotteryGame.getPlayerAddress(1n));
+        // console.log(await lotteryGame.getPlayerAddress(1n));
         expect(await lotteryGame.getPlayerAddress(1n)).toBeNull();
     });
 
     it('should not return money if 2 months have passed but lottery is full', async () => {
         const numPrice = await lotteryGame.getNumPrice();
-        const storageFee = 13981755n; // 2 months of storage fee
+        const storageFee = 13667880n; // 2 months of storage fee
         for (let i = 0; i < 100; i++) {
             const player = await blockchain.treasury('t6-player' + i);
             await lotteryGame.send(
@@ -430,7 +427,7 @@ describe('LotteryGame', () => {
                 },
             );
         }
-        console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
+        // console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
         expect(await lotteryGame.getCurrentNumOfPlayers()).toBe(100n);
         blockchain.now!! += 60 * 24 * 60 * 60; // 2 months
         const balanceBefore = await lotteryGame.getBalance();
@@ -458,11 +455,10 @@ describe('LotteryGame', () => {
         expect((await lotteryGame.getCurrentNumOfPlayers()).toString()).toBe('100');
     });
 
-    it('should be at 0 balance if all players cancel after 2 months have passed', async () => {
+    it('should not return money if player is not the owner of the canceled ticket', async () => {
         const numPrice = await lotteryGame.getNumPrice();
-
-        const totalPlayers = 99;
-        const storageFee = 7648093n; // 2 months of storage fee
+        const totalPlayers = 37;
+        const storageFee = 7334218n; // 2 months of storage fee
         for (let i = 0; i < totalPlayers; i++) {
             const player = await blockchain.treasury('t6-player' + i);
             await lotteryGame.send(
@@ -476,7 +472,97 @@ describe('LotteryGame', () => {
                 },
             );
         }
-        console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
+        // console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
+        expect(await lotteryGame.getCurrentNumOfPlayers()).toBe(BigInt(totalPlayers));
+        blockchain.now!! += 60 * 24 * 60 * 60; // 2 months
+        const balanceBefore = await lotteryGame.getBalance();
+
+        const result = await lotteryGame.send(
+            deployer.getSender(),
+            {
+                value: toNano('0.05'),
+            },
+            {
+                $$type: 'CancelNumber',
+                num: 1n,
+            },
+        );
+
+        expect(result.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: lotteryGame.address,
+            success: false,
+            exitCode: 21592, // Not the owner of the ticket
+        });
+        const balanceAfter = await lotteryGame.getBalance();
+        expect(balanceAfter.toString()).toBe((balanceBefore - storageFee).toString());
+        expect((await lotteryGame.getCurrentNumOfPlayers()).toString()).toBe('37');
+    });
+
+    it('should not return money if player cancels before 2 months have passed', async () => {
+        const numPrice = await lotteryGame.getNumPrice();
+        const totalPlayers = 37;
+        const storageFee = 3667109n; // 1 months of storage fee
+        for (let i = 0; i < totalPlayers; i++) {
+            const player = await blockchain.treasury('t6-player' + i);
+            await lotteryGame.send(
+                player.getSender(),
+                {
+                    value: numPrice,
+                },
+                {
+                    $$type: 'BuyNumber',
+                    num: BigInt(i),
+                },
+            );
+        }
+        // console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
+        expect(await lotteryGame.getCurrentNumOfPlayers()).toBe(BigInt(totalPlayers));
+        blockchain.now!! += 30 * 24 * 60 * 60; // only 1 month
+        const balanceBefore = await lotteryGame.getBalance();
+
+        const playerToCancel = (await blockchain.treasury('t6-player' + 1)).getSender();
+        const result = await lotteryGame.send(
+            playerToCancel,
+            {
+                value: toNano('0.05'),
+            },
+            {
+                $$type: 'CancelNumber',
+                num: 1n,
+            },
+        );
+
+        expect(result.transactions).toHaveTransaction({
+            from: playerToCancel.address,
+            to: lotteryGame.address,
+            success: false,
+            exitCode: 26663, // Not enough time has passed
+        });
+        const balanceAfter = await lotteryGame.getBalance();
+        expect(balanceAfter.toString()).toBe((balanceBefore - storageFee).toString());
+        expect((await lotteryGame.getCurrentNumOfPlayers()).toString()).toBe('37');
+    });
+
+    it('should be at 0 balance if all players cancel after 2 months have passed', async () => {
+        const numPrice = await lotteryGame.getNumPrice();
+
+        const totalPlayers = 99;
+        const storageFee = 7334218n; // 2 months of storage fee
+        for (let i = 0; i < totalPlayers; i++) {
+            const player = await blockchain.treasury('t6-player' + i);
+            await lotteryGame.send(
+                player.getSender(),
+                {
+                    value: numPrice,
+                },
+                {
+                    $$type: 'BuyNumber',
+                    num: BigInt(i),
+                },
+            );
+        }
+        // console.log('balance after numbers are bought: ', await lotteryGame.getBalance());
         expect(await lotteryGame.getCurrentNumOfPlayers()).toBe(BigInt(totalPlayers));
         blockchain.now!! += 60 * 24 * 60 * 60; // 2 months
         const balanceBefore = await lotteryGame.getBalance();

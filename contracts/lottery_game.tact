@@ -11,8 +11,6 @@ message AwardPrizes {
     numPrice: Int? as coins;
     devFee: Int? as uint8;
     prizes: map<Int as uint8, Int as uint16>;
-    // winners: map<Int as uint16, Int as uint64>; // winning num -> quantity
-    // seed: Int as uint32;
 }
 
 message CancelNumber {
@@ -36,7 +34,6 @@ struct PlayersData {
 }
 
 contract LotteryGame with Deployable, OwnableTransferable {
-    // const MIN_TONS_FOR_STORAGE: Int = ton("0.2");
     owner: Address;
     currentPlayers: map<Int as uint16, Address>;
     currentNumOfPlayers: Int as uint16;
@@ -56,37 +53,25 @@ contract LotteryGame with Deployable, OwnableTransferable {
         self.prizes = prizes;
     }
 
-    receive() {
-        // Accept incoming TON transfers
-    }
-
     receive(msg: BuyNumber) {
         require(msg.num >= 0 && msg.num < self.maxPlayers, "Invalid number");
-        // require(self.currentNumOfPlayers < self.maxPlayers, "Lottery is full");
         require(context().value >= self.numPrice, "Not enough funds to buy a ticket");
         require(self.currentPlayers.get(msg.num) == null, "Number already taken");
-        // Add the player to the list of players
         self.currentPlayers.set(msg.num, sender());
         self.currentNumOfPlayers += 1;
     }
 
     receive(msg: AwardPrizes) {
-        dump(myBalance());
-        // dump(context().value);
         self.requireOwner();
         require(self.currentNumOfPlayers == self.maxPlayers, "Lottery is not full");
         let winnerNums: Slice = msg.winners.beginParse();
         let initialBalance: Int = myBalance()-context().value;
-        // dump(initialBalance);
         foreach(quantity, winners in self.prizes) {
-            // dump(initialBalance*quantity);
             let amountToAward: Int = initialBalance*quantity/100;
-            // dump(amountToAward);
             repeat(winners) {
                 let winnerNum: Int = winnerNums.loadUint(16);
-                if (self.currentPlayers.exists(winnerNum)) {
-                    let winner: Address? = self.currentPlayers.get(winnerNum);
-                    // if (winner != null) {
+                let winner: Address? = self.currentPlayers.get(winnerNum);
+                if (winner != null) {
                     send(SendParameters{
                         to: winner!!,
                         value: amountToAward,
@@ -96,7 +81,6 @@ contract LotteryGame with Deployable, OwnableTransferable {
             }
         }
         let devAmount: Int = initialBalance*self.devFee/100;
-        dump(devAmount);
         send(SendParameters{
             to: self.owner,
             value: devAmount,
@@ -116,10 +100,9 @@ contract LotteryGame with Deployable, OwnableTransferable {
     }
 
     receive(msg: CancelNumber) {
-        dump(myBalance());
-        require(self.startTime + 60 * 24 * 60 * 60 <= now(), "Lottery is not old enough to be cancelled");
+        require(self.startTime + 60 * 24 * 60 * 60 <= now(), "Lottery is not old enough to cancel");
         require(self.currentNumOfPlayers < self.maxPlayers, "Lottery is full");
-        require(self.currentPlayers.get(msg.num) == sender(), "You are not a participant");
+        require(self.currentPlayers.get(msg.num) == sender(), "Only owner can cancel the number");
         send(SendParameters{
             to: sender(),
             value: (myBalance() - context().value)/self.currentNumOfPlayers,
