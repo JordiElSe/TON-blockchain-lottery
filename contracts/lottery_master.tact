@@ -36,12 +36,13 @@ contract LotteryMaster with Deployable, OwnableTransferable {
         self.requireOwner();
         send(SendParameters{
             to: self.owner,
-            value: SendRemainingBalance,
+            value: 0,
+            mode: SendRemainingBalance,
         });
     }
 
-    get fun balance(): String {
-        return myBalance().toCoinsString();
+    get fun balance(): Int {
+        return myBalance();
     }
 
     get fun lotteryGameAddress(maxPlayers: Int, numPrice: Int, devFee: Int, prizes: map<Int as uint8, Int as uint16>): Address {

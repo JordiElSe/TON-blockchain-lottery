@@ -60,7 +60,7 @@ describe('LotteryMaster', () => {
         const result = await lotteryMaster.send(
             nonOwner.getSender(),
             {
-                value: toNano('0.01'),
+                value: toNano('0.1'),
             },
             {
                 $$type: 'CreateLottery',
@@ -80,14 +80,6 @@ describe('LotteryMaster', () => {
     });
 
     it('should reject and bounce CreateLottery messages when not enough balance to deploy new lottery', async () => {
-        //Fund the lottery master with less than it takes to deploy a new lottery
-        // await lotteryMaster.send(
-        //     deployer.getSender(),
-        //     {
-        //         value: toNano('0.019'),
-        //     },
-        //     null,
-        // );
         console.log('contract balance', await lotteryMaster.getBalance());
         const results = await lotteryMaster.send(
             deployer.getSender(),
@@ -102,7 +94,6 @@ describe('LotteryMaster', () => {
                 prizes: prizes,
             },
         );
-        printTransactionFees(results.transactions);
 
         expect(results.transactions).toHaveTransaction({
             from: deployer.address,
@@ -141,13 +132,66 @@ describe('LotteryMaster', () => {
         // console.log('lotteryGame parameters:');
         const owner = await lotteryGame.getOwner();
         expect(owner.toString()).toEqual(deployer.address.toString());
-        // const maxPlayers = await lotteryGame.getMaxPlayers();
+        const maxPlayers = await lotteryGame.getMaxPlayers();
         // // console.log('maxPlayers', maxPlayers);
-        // expect(maxPlayers).toEqual('100');
-        // const numPrice = await lotteryGame.getNumPrice();
+        expect(maxPlayers).toEqual('100');
+        const numPrice = await lotteryGame.getNumPrice();
         // // console.log(`numPrice: ${numPrice} ton`);
-        // expect(numPrice).toEqual('0.01');
-        // const prizesInSc = await lotteryGame.getPrizes();
-        // expect(prizesInSc).toBe(prizes);
+        expect(fromNano(numPrice)).toEqual('0.01');
+        const prizesInSc = await lotteryGame.getPrizes();
+        expect(prizesInSc.toString()).toBe(prizes.toString());
+    });
+
+    it('should withdraw all funds to the owner of the smart contract', async () => {
+        const result = await lotteryMaster.send(
+            deployer.getSender(),
+            {
+                value: toNano('10'),
+            },
+            {
+                $$type: 'CreateLottery',
+                maxPlayers: 100n,
+                numPrice: toNano('0.01'),
+                devFee: 10n,
+                prizes: prizes,
+            },
+        );
+
+        expect(result.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: lotteryMaster.address,
+            success: true,
+        });
+        // console.log('contract balance', await lotteryMaster.getBalance());
+
+        const initialContractBalance = await lotteryMaster.getBalance();
+
+        const withdrawResult = await lotteryMaster.send(
+            deployer.getSender(),
+            {
+                value: toNano('0.005'),
+            },
+            'Withdraw',
+        );
+        expect(withdrawResult.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: lotteryMaster.address,
+            success: true,
+        });
+
+        expect(withdrawResult.transactions).toHaveTransaction({
+            from: lotteryMaster.address,
+            to: deployer.address,
+            success: true,
+            value: (amount) => {
+                return amount != undefined && initialContractBalance < amount;
+            },
+        });
+
+        const balanceAfter = await lotteryMaster.getBalance();
+        // console.log('contracte balance after', fromNano(balanceAfter));
+        // console.log('deployer balance after', fromNano(await deployer.getBalance()));
+
+        expect(balanceAfter).toEqual(0n);
     });
 });
